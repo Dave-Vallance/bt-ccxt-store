@@ -24,15 +24,15 @@ import collections
 from backtrader.position import Position
 from backtrader import BrokerBase, OrderBase, Order
 from backtrader.utils.py3 import queue
-from backtrader.stores.ccxtstore import CCXTStore
+from .ccxtstore import CCXTStore
 
 class CCXTOrder(OrderBase):
     def __init__(self, owner, data, ccxt_order):
         self.owner = owner
         self.data = data
         self.ccxt_order = ccxt_order
-        self.ordtype = self.Buy if ccxt_order['info']['side'] == 'buy' else self.Sell
-        self.size = float(ccxt_order['info']['original_amount']
+        self.ordtype = self.Buy if ccxt_order['side'] == 'buy' else self.Sell
+        self.size = float(ccxt_order['amount'])
 
         super(CCXTOrder, self).__init__()
 

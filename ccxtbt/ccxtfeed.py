@@ -26,10 +26,10 @@ from collections import deque
 from datetime import datetime
 import backtrader as bt
 from backtrader.feed import DataBase
-from backtrader.stores.ccxtstore import CCXTStore
+from .ccxtstore import CCXTStore
 import time
 
-class CCXT(DataBase):
+class CCXTFeed(DataBase):
     """
     CryptoCurrency eXchange Trading Library Data Feed.
     Params:
