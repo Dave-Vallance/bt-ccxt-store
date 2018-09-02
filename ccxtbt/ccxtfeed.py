@@ -26,10 +26,23 @@ from collections import deque
 from datetime import datetime
 import backtrader as bt
 from backtrader.feed import DataBase
+from backtrader.utils.py3 import with_metaclass
+from backtrader.metabase import MetaParams
 from .ccxtstore import CCXTStore
 import time
 
-class CCXTFeed(DataBase):
+
+class MetaCCXTFeed(DataBase.__class__):
+    def __init__(cls, name, bases, dct):
+        '''Class has already been created ... register'''
+        # Initialize the class
+        super(MetaCCXTFeed, cls).__init__(name, bases, dct)
+
+        # Register with the store
+        CCXTStore.DataCls = cls
+
+
+class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
     """
     CryptoCurrency eXchange Trading Library Data Feed.
     Params:
@@ -46,18 +59,20 @@ class CCXTFeed(DataBase):
     params = (
         ('historical', False),  # only historical download
         ('backfill_start', False),  # do backfilling at the start
-        ('fetch_ohlcv_params', {})
+        ('fetch_ohlcv_params', {}),
+        ('ohlcv_limit', 20)
     )
+
+    _store = CCXTStore
 
     # States for the Finite State Machine in _load
     _ST_LIVE, _ST_HISTORBACK, _ST_OVER = range(3)
 
-    def __init__(self, exchange, symbol, ohlcv_limit=None, config={}, retries=5):
-        self.symbol = symbol
-        self.ohlcv_limit = ohlcv_limit
-
-        self.store = CCXTStore(exchange, config, retries)
-
+    #def __init__(self, exchange, symbol, ohlcv_limit=None, config={}, retries=5):
+    def __init__(self, **kwargs):
+        self.symbol = self.p.dataname
+        # self.store = CCXTStore(exchange, config, retries)
+        self.store = self._store(**kwargs)
         self._data = deque() # data queue for price data
         self._last_id = '' # last processed trade id for ohlcv
         self._last_ts = 0 # last processed timestamp for ohlcv
@@ -68,11 +83,12 @@ class CCXTFeed(DataBase):
         if self.p.fromdate:
             self._state = self._ST_HISTORBACK
             self.put_notification(self.DELAYED)
-
             self._fetch_ohlcv(self.p.fromdate)
+
         else:
             self._state = self._ST_LIVE
             self.put_notification(self.LIVE)
+
 
     def _load(self):
         if self._state == self._ST_OVER:
@@ -85,6 +101,7 @@ class CCXTFeed(DataBase):
                 else:
                     self._fetch_ohlcv()
                     return self._load_ohlcv()
+
             elif self._state == self._ST_HISTORBACK:
                 ret = self._load_ohlcv()
                 if ret:
@@ -112,7 +129,7 @@ class CCXTFeed(DataBase):
             else:
                 since = None
 
-        limit = self.ohlcv_limit
+        limit = self.p.ohlcv_limit
 
         while True:
             dlen = len(self._data)

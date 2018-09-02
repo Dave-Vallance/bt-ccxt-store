@@ -26,11 +26,26 @@ from functools import wraps
 
 import ccxt
 from ccxt.base.errors import NetworkError, ExchangeError
-
+from datetime import datetime
 import backtrader as bt
+from backtrader.metabase import MetaParams
+from backtrader.utils.py3 import queue, with_metaclass
+
+class MetaSingleton(MetaParams):
+    '''Metaclass to make a metaclassed class a singleton'''
+    def __init__(cls, name, bases, dct):
+        super(MetaSingleton, cls).__init__(name, bases, dct)
+        cls._singleton = None
+
+    def __call__(cls, *args, **kwargs):
+        if cls._singleton is None:
+            cls._singleton = (
+                super(MetaSingleton, cls).__call__(*args, **kwargs))
+
+        return cls._singleton
 
 
-class CCXTStore(object):
+class CCXTStore(with_metaclass(MetaSingleton, object)):
     '''API provider for CCXT feed and broker classes.'''
 
     # Supported granularities
@@ -57,9 +72,28 @@ class CCXTStore(object):
         (bt.TimeFrame.Years, 1): '1y',
     }
 
-    def __init__(self, exchange, config, retries):
+    BrokerCls = None  # broker class will auto register
+    DataCls = None  # data class will auto register
+
+    @classmethod
+    def getdata(cls, *args, **kwargs):
+        '''Returns ``DataCls`` with args, kwargs'''
+        return cls.DataCls(*args, **kwargs)
+
+    @classmethod
+    def getbroker(cls, *args, **kwargs):
+        '''Returns broker with *args, **kwargs from registered ``BrokerCls``'''
+        return cls.BrokerCls(*args, **kwargs)
+
+    def __init__(self, exchange, currency, config, retries, broker_delay=None, debug=False):
         self.exchange = getattr(ccxt, exchange)(config)
+        self.currency = currency
         self.retries = retries
+        self.debug = debug
+
+        balance = self.exchange.fetch_balance()
+        self._cash = balance['free'][currency]
+        self._value = balance['total'][currency]
 
     def get_granularity(self, timeframe, compression):
         if not self.exchange.has['fetchOHLCV']:
@@ -82,6 +116,8 @@ class CCXTStore(object):
         @wraps(method)
         def retry_method(self, *args, **kwargs):
             for i in range(self.retries):
+                if self.debug:
+                    print('{} - {} - Attempt {}'.format(datetime.now(), method.__name__, i))
                 time.sleep(self.exchange.rateLimit / 1000)
                 try:
                     return method(self, *args, **kwargs)
@@ -91,17 +127,22 @@ class CCXTStore(object):
 
         return retry_method
 
-    @retry
-    def getcash(self, currency):
-        return self.exchange.fetch_balance()['free'][currency]
 
     @retry
-    def getvalue(self, currency):
-        return self.exchange.fetch_balance()['total'][currency]
+    def getbalance(self, currency):
+        balance = self.exchange.fetch_balance()
+        self._cash = balance['free'][currency]
+        self._value = balance['total'][currency]
 
-    @retry
+    #@retry
+    #def getvalue(self, currency):
+    #    return self._value
+    #    #return self.exchange.fetch_balance()['total'][currency]
+
+    #@retry
     def getposition(self, currency):
-        return self.getvalue(currency)
+        return self._value
+        #return self.getvalue(currency)
 
     @retry
     def create_order(self, symbol, order_type, side, amount, price, params):
@@ -119,6 +160,8 @@ class CCXTStore(object):
 
     @retry
     def fetch_ohlcv(self, symbol, timeframe, since, limit, params={}):
+        if self.debug:
+            print('Fetching: {}, TF: {}, Since: {}, Limit: {}'.format(symbol,timeframe,since,limit))
         return self.exchange.fetch_ohlcv(symbol, timeframe=timeframe, since=since, limit=limit, params=params)
 
     @retry
