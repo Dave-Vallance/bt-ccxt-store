@@ -1,5 +1,6 @@
 # bt-ccxt-store
-A temporary fork of Ed Bartosh's CCXT Store Work with some additions added
-for a project I was working on.
+A fork of Ed Bartosh's CCXT Store Work with some additions added for a projects
+I have been working on.
 
-This repo will be kept only for reference. It is out of date with the store from Ed. 
+Some additions have been made to this repo that I find useful. Your mileage may
+vary. Check out the example script. 
