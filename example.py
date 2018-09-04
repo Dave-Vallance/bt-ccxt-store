@@ -11,6 +11,12 @@ class TestStrategy(bt.Strategy):
 
     def next(self):
 
+        # Get cash and balance
+        # New broker method that will let you get the cash and balance for
+        # any wallet. It also means we can disable the getcash() and getvalue()
+        # rest calls before and after next which slows things down.
+        cash, value = self.broker.get_wallet_balance('USDT')
+
         for data in self.datas:
 
             print('{} - {} | O: {} H: {} L: {} C: {} V:{} SMA:{}'.format(data.datetime.datetime(),
@@ -22,16 +28,6 @@ class TestStrategy(bt.Strategy):
         dt = datetime.now()
         msg= 'Data Status: {}'.format(data._getstatusname(status))
         print(dt,dn,msg)
-
-        # This bit will allow you to backfill faster when starting the script
-        # Use with care as it is a hacky workaround and will stop making rest
-        # calls to get cash and value until a live notification is received.
-        if data._getstatusname(status) == 'DELAYED':
-            self.broker.balance_checks = False
-
-        if data._getstatusname(status) == 'LIVE':
-            self.broker.balance_checks = True
-
 
 
 apikey = 'Insert Your API Key'
