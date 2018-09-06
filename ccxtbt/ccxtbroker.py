@@ -53,9 +53,12 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
 
     Added a new mappings parameter to the script with defaults.
 
-    self.balance_checks can be overwritten in the strategy to stop making a getbalance()
-    call. Useful when backfilling. It should be set by the strategy to pause and also
-    restart the checks
+    Added a new get_wallet_balance method. This will allow manual checking of the balance.
+        The method will allow setting parameters. Useful for getting margin balances
+
+    Modified getcash() and getvalue():
+        Backtrader will call getcash and getvalue before and after next, slowing things down
+        with rest calls. As such, th
 
     The broker mapping should contain a new dict for order_types and mappings like below:
 
@@ -96,9 +99,16 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
 
     def __init__(self, broker_mapping=None, **kwargs):
         super(CCXTBroker, self).__init__()
+
         if broker_mapping is not None:
-            self.order_types = broker_mapping['order_types']
-            self.mappings = broker_mapping['mappings']
+            try:
+                self.order_types = broker_mapping['order_types']
+            except KeyError: # Might not want to change the order types
+                pass
+            try:
+                self.mappings = broker_mapping['mappings']
+            except KeyError: # might not want to change the mappings
+                pass
 
         #self.o = oandav20store.OandaV20Store(**kwargs)
         #self.store = CCXTStore(exchange, config, retries)
@@ -113,17 +123,18 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
 
         self.open_orders = list()
 
-        self.balance_checks = True
-
         self.startingcash  = self.store._cash
         self.startingvalue = self.store._value
 
+    def get_wallet_balance(self, currency, params=None):
+        balance = self.store.get_wallet_balance(currency, params=params)
+        cash = balance['free'][currency]
+        value = balance['total'][currency]
+        return cash, value
 
     def getcash(self):
         # Get cash seems to always be called before get value
         # Therefore it makes sense to add getbalance here.
-        if self.balance_checks:
-            self.store.getbalance(self.currency)
         #return self.store.getcash(self.currency)
         return self.store._cash
 
@@ -197,6 +208,11 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
             return order
 
         ccxt_order = self.store.cancel_order(oID)
+        print('CCXT Order')
+        print(ccxt_order)
+        print('Value Received: {}'.format(ccxt_order[self.mappings['canceled_order']['key']]))
+        print('Value Expected: {}'.format(self.mappings['canceled_order']['value']))
+
         if ccxt_order[self.mappings['canceled_order']['key']] == self.mappings['canceled_order']['value']:
             self.open_orders.remove(order)
             order.cancel()

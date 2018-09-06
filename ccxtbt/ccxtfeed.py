@@ -54,13 +54,23 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
       - ``backfill_start`` (default: ``True``)
         Perform backfilling at the start. The maximum possible historical data
         will be fetched in a single request.
+
+    Changes From Ed's pacakge
+
+        - Added option to send some additional fetch_ohlcv_params. Some exchanges (e.g Bitmex)
+          support sending some additional fetch parameters. 
+        - Added drop_newest option to avoid loading incomplete candles where exchanges
+          do not support sending ohlcv params to prevent returning partial data
+
     """
 
     params = (
         ('historical', False),  # only historical download
         ('backfill_start', False),  # do backfilling at the start
         ('fetch_ohlcv_params', {}),
-        ('ohlcv_limit', 20)
+        ('ohlcv_limit', 20),
+        ('drop_newest', False),
+        ('debug', False)
     )
 
     _store = CCXTStore
@@ -100,7 +110,11 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
                     return self._load_ticks()
                 else:
                     self._fetch_ohlcv()
-                    return self._load_ohlcv()
+                    ret = self._load_ohlcv()
+                    if self.p.debug:
+                        print('----     LOAD    ----')
+                        print('{} Load OHLCV Returning: {}'.format(datetime.utcnow(), ret))
+                    return ret
 
             elif self._state == self._ST_HISTORBACK:
                 ret = self._load_ohlcv()
@@ -134,8 +148,36 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
         while True:
             dlen = len(self._data)
 
-            for ohlcv in sorted(self.store.fetch_ohlcv(self.symbol, timeframe=granularity,
-                                                       since=since, limit=limit, params=self.p.fetch_ohlcv_params)):
+
+            if self.p.debug:
+                # TESTING
+                since_dt = datetime.utcfromtimestamp(since // 1000) if since is not None else 'NA'
+                print('---- NEW REQUEST ----')
+                print('{} - Requesting: Since TS {} Since date {} granularity {}, limit {}, params'.format(datetime.utcnow(),since, since_dt, granularity, limit, self.p.fetch_ohlcv_params))
+                data = sorted(self.store.fetch_ohlcv(self.symbol, timeframe=granularity,
+                                                           since=since, limit=limit, params=self.p.fetch_ohlcv_params))
+                try:
+                    for i, ohlcv in enumerate(data):
+                        tstamp, open_, high, low, close, volume = ohlcv
+                        print('{} - Data {}: {} - TS {} Time {}'.format(datetime.utcnow(), i, datetime.utcfromtimestamp(tstamp // 1000), tstamp, (time.time() * 1000)))
+                        # ------------------------------------------------------------------
+                except IndexError:
+                    print('Index Error: Data = {}'.format(data))
+                print('---- REQUEST END ----')
+            else:
+
+                data = sorted(self.store.fetch_ohlcv(self.symbol, timeframe=granularity,
+                                                           since=since, limit=limit, params=self.p.fetch_ohlcv_params))
+
+            # Check to see if dropping the latest candle will help with
+            # exchanges which return partial data
+            if self.p.drop_newest:
+                del data[-1]
+
+            for ohlcv in data:
+
+            #for ohlcv in sorted(self.store.fetch_ohlcv(self.symbol, timeframe=granularity,
+            #                                           since=since, limit=limit, params=self.p.fetch_ohlcv_params)):
 
                 if None in ohlcv:
                     continue
@@ -143,10 +185,12 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
                 tstamp = ohlcv[0]
 
                 # Prevent from loading incomplete data
-                if tstamp > (time.time() * 1000):
-                    continue
+                #if tstamp > (time.time() * 1000):
+                #    continue
 
                 if tstamp > self._last_ts:
+                    if self.p.debug:
+                        print('Adding: {}'.format(ohlcv))
                     self._data.append(ohlcv)
                     self._last_ts = tstamp
 

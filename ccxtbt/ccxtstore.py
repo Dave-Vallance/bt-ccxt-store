@@ -46,7 +46,12 @@ class MetaSingleton(MetaParams):
 
 
 class CCXTStore(with_metaclass(MetaSingleton, object)):
-    '''API provider for CCXT feed and broker classes.'''
+    '''API provider for CCXT feed and broker classes.
+
+    Added a new get_wallet_balance method. This will allow manual checking of the balance.
+        The method will allow setting parameters. Useful for getting margin balances
+
+    '''
 
     # Supported granularities
     _GRANULARITIES = {
@@ -129,17 +134,17 @@ class CCXTStore(with_metaclass(MetaSingleton, object)):
 
 
     @retry
-    def getbalance(self, currency):
+    def get_wallet_balance(self, currency, params=None):
+        balance = self.exchange.fetch_balance(params)
+        return balance
+
+    @retry
+    def get_balance(self, currency):
         balance = self.exchange.fetch_balance()
         self._cash = balance['free'][currency]
         self._value = balance['total'][currency]
 
-    #@retry
-    #def getvalue(self, currency):
-    #    return self._value
-    #    #return self.exchange.fetch_balance()['total'][currency]
-
-    #@retry
+    @retry
     def getposition(self, currency):
         return self._value
         #return self.getvalue(currency)
