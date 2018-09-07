@@ -30,6 +30,7 @@ from datetime import datetime
 import backtrader as bt
 from backtrader.metabase import MetaParams
 from backtrader.utils.py3 import queue, with_metaclass
+import json
 
 class MetaSingleton(MetaParams):
     '''Metaclass to make a metaclassed class a singleton'''
@@ -51,6 +52,8 @@ class CCXTStore(with_metaclass(MetaSingleton, object)):
     Added a new get_wallet_balance method. This will allow manual checking of the balance.
         The method will allow setting parameters. Useful for getting margin balances
 
+    Added new private_end_point method to allow using any private non-unified end point 
+
     '''
 
     # Supported granularities
@@ -63,6 +66,7 @@ class CCXTStore(with_metaclass(MetaSingleton, object)):
         (bt.TimeFrame.Minutes, 60): '1h',
         (bt.TimeFrame.Minutes, 90): '90m',
         (bt.TimeFrame.Minutes, 120): '2h',
+        (bt.TimeFrame.Minutes, 180): '3h',
         (bt.TimeFrame.Minutes, 240): '4h',
         (bt.TimeFrame.Minutes, 360): '6h',
         (bt.TimeFrame.Minutes, 480): '8h',
@@ -176,3 +180,23 @@ class CCXTStore(with_metaclass(MetaSingleton, object)):
     @retry
     def fetch_open_orders(self):
         return self.exchange.fetchOpenOrders()
+
+    @retry
+    def private_end_point(self, type, endpoint, params):
+        '''
+        Open method to allow calls to be made to any private end point.
+        See here: https://github.com/ccxt/ccxt/wiki/Manual#implicit-api-methods
+
+        - type: String, 'Get', 'Post','Put' or 'Delete'.
+        - endpoint = String containing the endpoint address eg. 'order/{id}/cancel'
+        - Params: Dict: An implicit method takes a dictionary of parameters, sends
+          the request to the exchange and returns an exchange-specific JSON
+          result from the API as is, unparsed.
+
+        To get a list of all available methods with an exchange instance,
+        including implicit methods and unified methods you can simply do the
+        following:
+
+        print(dir(ccxt.hitbtc()))
+        '''
+        return getattr(self.exchange, endpoint)(params)

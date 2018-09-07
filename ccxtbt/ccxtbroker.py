@@ -79,6 +79,9 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
                 'value':1}
                 }
         }
+
+    Added new private_end_point method to allow using any private non-unified end point 
+
     '''
 
     order_types = {Order.Market: 'market',
@@ -156,7 +159,6 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
         pos = self.positions[data._dataname]
         if clone:
             pos = pos.clone()
-
         return pos
 
     def next(self):
@@ -208,10 +210,10 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
             return order
 
         ccxt_order = self.store.cancel_order(oID)
-        print('CCXT Order')
-        print(ccxt_order)
-        print('Value Received: {}'.format(ccxt_order[self.mappings['canceled_order']['key']]))
-        print('Value Expected: {}'.format(self.mappings['canceled_order']['value']))
+        #print('CCXT Order')
+        #print(ccxt_order)
+        #print('Value Received: {}'.format(ccxt_order[self.mappings['canceled_order']['key']]))
+        #print('Value Expected: {}'.format(self.mappings['canceled_order']['value']))
 
         if ccxt_order[self.mappings['canceled_order']['key']] == self.mappings['canceled_order']['value']:
             self.open_orders.remove(order)
@@ -221,3 +223,28 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
 
     def get_orders_open(self, safe=False):
         return self.store.fetch_open_orders()
+
+    def private_end_point(self, type, endpoint, params):
+        '''
+        Open method to allow calls to be made to any private end point.
+        See here: https://github.com/ccxt/ccxt/wiki/Manual#implicit-api-methods
+
+        - type: String, 'Get', 'Post','Put' or 'Delete'.
+        - endpoint = String containing the endpoint address eg. 'order/{id}/cancel'
+        - Params: Dict: An implicit method takes a dictionary of parameters, sends
+          the request to the exchange and returns an exchange-specific JSON
+          result from the API as is, unparsed.
+
+        To get a list of all available methods with an exchange instance,
+        including implicit methods and unified methods you can simply do the
+        following:
+
+        print(dir(ccxt.hitbtc()))
+        '''
+        endpoint_str = endpoint.replace('/','_')
+        endpoint_str = endpoint_str.replace('{','')
+        endpoint_str = endpoint_str.replace('}','')
+
+        method_str = 'private_' + type.lower() + endpoint_str.lower()
+
+        return self.store.private_end_point(type=type, endpoint=method_str, params=params)

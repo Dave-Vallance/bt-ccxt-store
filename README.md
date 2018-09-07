@@ -27,7 +27,7 @@ Check out the example script to see how to setup and run on Kraken.
       Backtrader will call getcash and getvalue before and after next, slowing things down
       with rest calls. As such, these will just return the last values called from getbalance().
       Because getbalance() will not be called by cerebro, you need to do this manual as and when  
-      you want the information. 
+      you want the information.
 
 - **Note:** The broker mapping should contain a new dict for order_types and mappings like below:
 
@@ -49,6 +49,29 @@ Check out the example script to see how to setup and run on Kraken.
               'value':1}
               }
       }
+```
+
+  - Added new private_end_point method to allow using any private non-unified end point.
+    An example for getting a list of postions and then closing them on Bitfinex
+    is below:
+
+```
+      # NOTE - THIS CLOSES A LONG POSITION. TO CLOSE A SHORT, REMOVE THE '-' FROM
+      # -self.position.size
+      type = 'Post'
+      endpoint = '/positions'
+      params = {}
+      positions = self.broker.private_end_point(type=type, endpoint=endpoint, params=params)
+      for position in positions:
+          id = position['id']
+          type = 'Post'
+          endpoint = '/position/close'
+          params = {'position_id': id}
+          result = self.broker.private_end_point(type=type, endpoint=endpoint, params=params)
+          _pos = self.broker.getposition(data, clone=False)
+          # A Price of NONE is returned form the close position endpoint!
+          _pos.update(-self.position.size, None)
+
 ```
 
 ## CCXTStore
@@ -78,6 +101,8 @@ A store is initialized in a similar way to other backtrader stores. e.g
                            timeframe=get_timeframe(timeframe), fromdate=hist_start_date,
                            compression=1, ohlcv_limit=50, fetch_ohlcv_params = {'partial': False}) #, historical=True)
 ```
+
+ - Added new private_end_point method to allow using any private non-unified end point. For an example, see broker section above.
 
 ## CCXTFeed
 
