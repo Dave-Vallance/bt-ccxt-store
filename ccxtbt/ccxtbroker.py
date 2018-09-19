@@ -53,8 +53,11 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
 
     Added a new mappings parameter to the script with defaults.
 
-    Added a new get_wallet_balance method. This will allow manual checking of the balance.
-        The method will allow setting parameters. Useful for getting margin balances
+    Added a get_balance function. Manually check the account balance and update brokers
+    self.cash and self.value. This helps alleviate rate limit issues.
+
+    Added a new get_wallet_balance method. This will allow manual checking of the any coins
+        The method will allow setting parameters. Useful for dealing with multiple assets
 
     Modified getcash() and getvalue():
         Backtrader will call getcash and getvalue before and after next, slowing things down
@@ -80,7 +83,7 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
                 }
         }
 
-    Added new private_end_point method to allow using any private non-unified end point 
+    Added new private_end_point method to allow using any private non-unified end point
 
     '''
 
@@ -129,6 +132,12 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
         self.startingcash  = self.store._cash
         self.startingvalue = self.store._value
 
+    def get_balance(self, params=None):
+        balance = self.store.get_balance(params=params)
+        self.cash = self.store._cash
+        self.value = self.store._value
+        return self.cash, self.value
+
     def get_wallet_balance(self, currency, params=None):
         balance = self.store.get_wallet_balance(currency, params=params)
         cash = balance['free'][currency]
@@ -139,11 +148,13 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
         # Get cash seems to always be called before get value
         # Therefore it makes sense to add getbalance here.
         #return self.store.getcash(self.currency)
-        return self.store._cash
+        self.cash = self.store._cash
+        return self.cash
 
     def getvalue(self, datas=None):
         #return self.store.getvalue(self.currency)
-        return self.store._value
+        self.value = self.store._value
+        return self.value
 
     def get_notification(self):
         try:

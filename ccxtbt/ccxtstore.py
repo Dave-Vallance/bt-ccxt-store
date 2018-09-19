@@ -52,7 +52,7 @@ class CCXTStore(with_metaclass(MetaSingleton, object)):
     Added a new get_wallet_balance method. This will allow manual checking of the balance.
         The method will allow setting parameters. Useful for getting margin balances
 
-    Added new private_end_point method to allow using any private non-unified end point 
+    Added new private_end_point method to allow using any private non-unified end point
 
     '''
 
@@ -143,13 +143,13 @@ class CCXTStore(with_metaclass(MetaSingleton, object)):
         return balance
 
     @retry
-    def get_balance(self, currency):
-        balance = self.exchange.fetch_balance()
-        self._cash = balance['free'][currency]
-        self._value = balance['total'][currency]
+    def get_balance(self, params=None):
+        balance = self.exchange.fetch_balance(params=params)
+        self._cash = balance['free'][self.currency]
+        self._value = balance['total'][self.currency]
 
     @retry
-    def getposition(self, currency):
+    def getposition(self):
         return self._value
         #return self.getvalue(currency)
 
