@@ -143,8 +143,8 @@ class CCXTStore(with_metaclass(MetaSingleton, object)):
         return balance
 
     @retry
-    def get_balance(self, params=None):
-        balance = self.exchange.fetch_balance(params=params)
+    def get_balance(self):
+        balance = self.exchange.fetch_balance()
         self._cash = balance['free'][self.currency]
         self._value = balance['total'][self.currency]
 

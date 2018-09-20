@@ -132,8 +132,8 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
         self.startingcash  = self.store._cash
         self.startingvalue = self.store._value
 
-    def get_balance(self, params=None):
-        balance = self.store.get_balance(params=params)
+    def get_balance(self):
+        balance = self.store.get_balance()
         self.cash = self.store._cash
         self.value = self.store._value
         return self.cash, self.value
