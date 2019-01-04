@@ -7,5 +7,5 @@ setup(
    author='Dave Vallance',
 #   author_email='foomail@foo.com',
    packages=['ccxtbt'],  
-   install_requires=['backtrader'], 
+   install_requires=['backtrader','ccxt'], 
 )
