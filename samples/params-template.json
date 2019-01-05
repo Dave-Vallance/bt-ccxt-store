@@ -1,0 +1,8 @@
+{
+  "comment": "Please don't change this file and copy it as params.json. There you can enter your values. But please keep it locally and in .gitignore and never commit it to avoid compromising your private keys",
+  "binance": {
+    "apikey": "your api key",
+    "secret": "your api secret",
+    "testorders": true
+  }
+}

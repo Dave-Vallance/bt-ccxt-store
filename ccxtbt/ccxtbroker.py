@@ -138,7 +138,7 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
         self.value = self.store._value
         return self.cash, self.value
 
-    def get_wallet_balance(self, currency, params=None):
+    def get_wallet_balance(self, currency, params={}):
         balance = self.store.get_wallet_balance(currency, params=params)
         cash = balance['free'][currency]
         value = balance['total'][currency]
