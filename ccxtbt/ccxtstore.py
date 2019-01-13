@@ -155,9 +155,9 @@ class CCXTStore(with_metaclass(MetaSingleton, object)):
 
     @retry
     def create_order(self, symbol, order_type, side, amount, price, params):
-        ret_ord = self.exchange.create_order(symbol=symbol, type=order_type, side=side,
+        # returns the order
+        return self.exchange.create_order(symbol=symbol, type=order_type, side=side,
                                           amount=amount, price=price, params=params)
-        return self.fetch_order(ret_ord['id'])
 
     @retry
     def cancel_order(self, order_id):
@@ -174,8 +174,8 @@ class CCXTStore(with_metaclass(MetaSingleton, object)):
         return self.exchange.fetch_ohlcv(symbol, timeframe=timeframe, since=since, limit=limit, params=params)
 
     @retry
-    def fetch_order(self, oid):
-        return self.exchange.fetch_order(oid)
+    def fetch_order(self, oid, symbol):
+        return self.exchange.fetch_order(oid, symbol)
 
     @retry
     def fetch_open_orders(self):
