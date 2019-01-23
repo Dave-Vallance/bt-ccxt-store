@@ -219,7 +219,7 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
         oID = order.ccxt_order['id']
         # check first if the order has already been filled otherwise an error
         # might be raised if we try to cancel an order that is not open.
-        ccxt_order = self.store.fetch_order(oID)
+        ccxt_order = self.store.fetch_order(oID, order.data.symbol)
         if ccxt_order[self.mappings['closed_order']['key']] == self.mappings['closed_order']['value']:
             return order
 
