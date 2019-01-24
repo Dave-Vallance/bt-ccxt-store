@@ -176,7 +176,7 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
 
         for o_order in list(self.open_orders):
             oID = o_order.ccxt_order['id']
-            ccxt_order = self.store.fetch_order(oID)
+            ccxt_order = self.store.fetch_order(oID, o_order.data.symbol)
             if ccxt_order[self.mappings['closed_order']['key']] == self.mappings['closed_order']['value']:
                 pos = self.getposition(o_order.data, clone=False)
                 pos.update(o_order.size, o_order.price)
@@ -188,8 +188,9 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
         order_type = self.order_types.get(exectype) if exectype else 'market'
         # Extract CCXT specific params if passed to the order
         params = params['params'] if 'params' in params else params
-        _order = self.store.create_order(symbol=data.symbol, order_type=order_type, side=side,
+        ret_ord = self.store.create_order(symbol=data.symbol, order_type=order_type, side=side,
                                          amount=amount, price=price, params=params)
+        _order = self.store.fetch_order(ret_ord['id'], data.symbol)
 
         order = CCXTOrder(owner, data, _order)
         self.open_orders.append(order)
@@ -203,6 +204,8 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
             exectype=None, valid=None, tradeid=0, oco=None,
             trailamount=None, trailpercent=None,
             **kwargs):
+        del kwargs['parent']
+        del kwargs['transmit']
         return self._submit(owner, data, exectype, 'buy', size, price, kwargs)
 
     def sell(self, owner, data, size, price=None, plimit=None,
@@ -216,7 +219,7 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
         oID = order.ccxt_order['id']
         # check first if the order has already been filled otherwise an error
         # might be raised if we try to cancel an order that is not open.
-        ccxt_order = self.store.fetch_order(oID)
+        ccxt_order = self.store.fetch_order(oID, order.data.symbol)
         if ccxt_order[self.mappings['closed_order']['key']] == self.mappings['closed_order']['value']:
             return order
 
