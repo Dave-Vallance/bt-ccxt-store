@@ -104,3 +104,5 @@ venv.bak/
 .mypy_cache/
 samples/params.json
 .idea
+samples/.DS_Store
+.DS_Store

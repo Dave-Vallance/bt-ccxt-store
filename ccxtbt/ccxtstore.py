@@ -160,8 +160,8 @@ class CCXTStore(with_metaclass(MetaSingleton, object)):
                                           amount=amount, price=price, params=params)
 
     @retry
-    def cancel_order(self, order_id):
-        return self.exchange.cancel_order(order_id)
+    def cancel_order(self, order_id, symbol):
+        return self.exchange.cancel_order(order_id, symbol)
 
     @retry
     def fetch_trades(self, symbol):
