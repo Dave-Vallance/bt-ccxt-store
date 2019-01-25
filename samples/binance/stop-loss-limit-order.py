@@ -1,23 +1,35 @@
+import os
+
 from ccxtbt import CCXTStore
 from backtrader import Order
 import backtrader as bt
 from datetime import datetime, timedelta
 import time
 import json
+import logging
 
 class TestStrategy(bt.Strategy):
 
     def __init__(self):
 
-        self.bought = False
+        logging.basicConfig(level=logging.DEBUG)
+        self.sold = False
         # To keep track of pending orders and buy price/commission
         self.order = None
 
     def next(self):
 
-        if self.live_data and not self.bought:
-            self.order = self.buy(size=2.0, exectype=Order.Limit, price=5.0)
-            self.bought = True
+        if self.live_data and not self.sold:
+
+            # In this configuration the StopLimit order of Backtrader is mapped to "STOP_LOSS_LIMIT" from Binance
+            # With that order type Binance requires the stopPrice to be below the current market price
+            # see https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#new-order--trade
+            # "Trigger order price rules against market price for both MARKET and LIMIT versions:"
+            #
+            # Attention! If you don't want to actually sell the stopPrice should be way below the market price.
+            # This way you still have time to cancel the order at the exchange.
+            self.order = self.sell(size=2.0, exectype=Order.StopLimit, price=5.475, stopPrice=5.4763)
+            self.sold = True
 
         for data in self.datas:
 
@@ -34,7 +46,11 @@ class TestStrategy(bt.Strategy):
         else:
             self.live_data = False
 
-with open('./params.json', 'r') as f:
+
+# absolute dir the script is in
+script_dir = os.path.dirname(__file__)
+abs_file_path = os.path.join(script_dir, '../params.json')
+with open(abs_file_path, 'r') as f:
     params = json.load(f)
 
 cerebro = bt.Cerebro(quicknotify=True)
@@ -63,8 +79,8 @@ broker_mapping = {
     'order_types': {
         bt.Order.Market: 'market',
         bt.Order.Limit: 'limit',
-        bt.Order.Stop: 'stop-loss', #stop-loss for kraken, stop for bitmex
-        bt.Order.StopLimit: 'stop limit'
+        bt.Order.Stop: 'stop_loss', #stop-loss for kraken, stop for bitmex
+        bt.Order.StopLimit: 'STOP_LOSS_LIMIT'
     },
     'mappings':{
         'closed_order':{
