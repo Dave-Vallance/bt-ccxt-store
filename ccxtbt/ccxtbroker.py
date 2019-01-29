@@ -230,6 +230,8 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
              exectype=None, valid=None, tradeid=0, oco=None,
              trailamount=None, trailpercent=None,
              **kwargs):
+        del kwargs['parent']
+        del kwargs['transmit']
         return self._submit(owner, data, exectype, 'sell', size, price, kwargs)
 
     def cancel(self, order):
@@ -252,10 +254,7 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
         if ccxt_order[self.mappings['closed_order']['key']] == self.mappings['closed_order']['value']:
             return order
 
-        if self.debug:
-            print('Canceling Order ID: {}'.format(oID))
-
-        ccxt_order = self.store.cancel_order(oID)
+        ccxt_order = self.store.cancel_order(oID, order.data.symbol)
 
         if self.debug:
             print(json.dumps(ccxt_order, indent=self.indent))
