@@ -1,0 +1,59 @@
+{
+  "info": {
+    "makerCommission": 10,
+    "takerCommission": 10,
+    "buyerCommission": 0,
+    "sellerCommission": 0,
+    "canTrade": true,
+    "canWithdraw": true,
+    "canDeposit": true,
+    "updateTime": 1551706701311,
+    "balances": [
+      {
+        "asset": "BTC",
+        "free": "0.00000000",
+        "locked": "0.00000000"
+      },
+      {
+        "asset": "USDT",
+        "free": "1000.00000000",
+        "locked": "0.00000000"
+      },
+      {
+        "asset": "BNB",
+        "free": "10.00000000",
+        "locked": "0.00000000"
+      }
+    ]
+  },
+  "BTC": {
+    "free": 0.0,
+    "used": 0.0,
+    "total": 0.0
+  },
+  "USDT": {
+    "free": 1000.00000000,
+    "used": 0.0,
+    "total": 1000.00000000
+  },
+  "BNB": {
+    "free": 10,
+    "used": 0.0,
+    "total": 10
+  },
+  "free": {
+    "BTC": 0.0,
+    "BNB": 10,
+    "USDT": 1000.00000000
+  },
+  "used": {
+    "BTC": 0.0,
+    "BNB": 0.0,
+    "USDT": 0.0
+  },
+  "total": {
+    "BTC": 0.0,
+    "BNB": 10,
+    "USDT": 1000.00000000
+  }
+}

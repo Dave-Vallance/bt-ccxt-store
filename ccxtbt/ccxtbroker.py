@@ -24,7 +24,7 @@ from __future__ import (absolute_import, division, print_function,
 import collections
 import json
 
-from backtrader import BrokerBase, OrderBase, Order
+from backtrader import BrokerBase, OrderBase
 from backtrader.position import Position
 from backtrader.utils.py3 import queue, with_metaclass
 
@@ -47,7 +47,8 @@ class MetaCCXTBroker(BrokerBase.__class__):
         '''Class has already been created ... register'''
         # Initialize the class
         super(MetaCCXTBroker, cls).__init__(name, bases, dct)
-        CCXTStore.BrokerCls = cls
+        if name == 'CCXTBroker':
+            CCXTStore.BrokerCls = cls
 
 
 class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
@@ -58,7 +59,7 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
     Broker mapping added as I noticed that there differences between the expected
     order_types and retuned status's from canceling an order
 
-    Added a new mappings parameter to the script with defaults.
+    Added a new mapping parameter to the script with defaults.
 
     Added a get_balance function. Manually check the account balance and update brokers
     self.cash and self.value. This helps alleviate rate limit issues.
@@ -70,7 +71,7 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
         Backtrader will call getcash and getvalue before and after next, slowing things down
         with rest calls. As such, th
 
-    The broker mapping should contain a new dict for order_types and mappings like below:
+    The broker mapping should contain a new dict for order_types and order_status like below:
 
     broker_mapping = {
         'order_types': {
@@ -79,7 +80,7 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
             bt.Order.Stop: 'stop-loss', #stop-loss for kraken, stop for bitmex
             bt.Order.StopLimit: 'stop limit'
         },
-        'mappings':{
+        'order_status':{
             'closed_order':{
                 'key': 'status',
                 'value':'closed'
@@ -94,35 +95,14 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
 
     '''
 
-    order_types = {Order.Market: 'market',
-                   Order.Limit: 'limit',
-                   Order.Stop: 'stop',  # stop-loss for kraken, stop for bitmex
-                   Order.StopLimit: 'stop limit'}
-
-    mappings = {
-        'closed_order': {
-            'key': 'status',
-            'value': 'closed'
-        },
-        'canceled_order': {
-            'key': 'status',
-            'value': 'canceled'}
-    }
+    broker_mapping = None
 
     def __init__(self, broker_mapping=None, debug=False, **kwargs):
         super(CCXTBroker, self).__init__()
 
-        if broker_mapping is not None:
-            try:
-                self.order_types = broker_mapping['order_types']
-            except KeyError:  # Might not want to change the order types
-                pass
-            try:
-                self.mappings = broker_mapping['mappings']
-            except KeyError:  # might not want to change the mappings
-                pass
-
         self.store = CCXTStore(**kwargs)
+
+        self.broker_mapping = broker_mapping
 
         self.currency = self.store.currency
 
@@ -198,7 +178,10 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
                 print(json.dumps(ccxt_order, indent=self.indent))
 
             # Check if the order is closed
-            if ccxt_order[self.mappings['closed_order']['key']] == self.mappings['closed_order']['value']:
+            closed_order_exchange_value, closed_order_success_value = self.get_order_status_values(ccxt_order,
+                                                                                                   'closed_order',
+                                                                                                   self.broker_mapping)
+            if closed_order_exchange_value == closed_order_success_value:
                 pos = self.getposition(o_order.data, clone=False)
                 pos.update(o_order.size, o_order.price)
                 o_order.completed()
@@ -206,7 +189,11 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
                 self.open_orders.remove(o_order)
 
     def _submit(self, owner, data, exectype, side, amount, price, params):
-        order_type = self.order_types.get(exectype) if exectype else 'market'
+        # order_type = self._get_order_type(exectype)
+        if 'broker_class' in self.broker_mapping:
+            order_type = exectype
+        else:
+            order_type = self.get_order_type(exectype, self.broker_mapping)
 
         # Extract CCXT specific params if passed to the order
         params = params['params'] if 'params' in params else params
@@ -221,6 +208,13 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
 
         self.notify(order)
         return order
+
+    def get_order_type(self, exectype, broker_mapping):
+        local_exec_type = exectype if exectype else OrderBase.Market
+        order_type_name = OrderBase.ExecTypes[local_exec_type]
+        order_types = broker_mapping['order_types']
+        order_type = order_types.get(order_type_name)
+        return order_type
 
     def buy(self, owner, data, size, price=None, plimit=None,
             exectype=None, valid=None, tradeid=0, oco=None,
@@ -253,7 +247,10 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
         if self.debug:
             print(json.dumps(ccxt_order, indent=self.indent))
 
-        if ccxt_order[self.mappings['closed_order']['key']] == self.mappings['closed_order']['value']:
+        closed_order_exchange_value, closed_order_success_value = self.get_order_status_values(ccxt_order,
+                                                                                               'closed_order',
+                                                                                               self.broker_mapping)
+        if closed_order_exchange_value == closed_order_success_value:
             return order
 
         if self.debug:
@@ -261,16 +258,27 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
 
         ccxt_order = self.store.cancel_order(oID, order.data.symbol)
 
+        canceled_order_exchange_value, canceled_order_success_value = self.get_order_status_values(ccxt_order,
+                                                                                                   'canceled_order',
+                                                                                                   self.broker_mapping)
+
         if self.debug:
             print(json.dumps(ccxt_order, indent=self.indent))
-            print('Value Received: {}'.format(ccxt_order[self.mappings['canceled_order']['key']]))
-            print('Value Expected: {}'.format(self.mappings['canceled_order']['value']))
+            print('Value Received: {}'.format(canceled_order_exchange_value))
+            print('Value Expected: {}'.format(canceled_order_success_value))
 
-        if ccxt_order[self.mappings['canceled_order']['key']] == self.mappings['canceled_order']['value']:
-            self.open_orders.remove(order)
+        if canceled_order_exchange_value == canceled_order_success_value:
+            if order in self.open_orders:
+                self.open_orders.remove(order)
             order.cancel()
             self.notify(order)
         return order
+
+    def get_order_status_values(self, ccxt_order, status_type, broker_mapping):
+        exchange_status_key = broker_mapping['order_status'][status_type]['key']
+        success_order_status_value = broker_mapping['order_status'][status_type]['value']
+        exchange_status_value = ccxt_order[exchange_status_key]
+        return exchange_status_value, success_order_status_value
 
     def get_orders_open(self, safe=False):
         return self.store.fetch_open_orders()
