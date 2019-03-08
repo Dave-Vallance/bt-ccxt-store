@@ -253,9 +253,6 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
         if closed_order_exchange_value == closed_order_success_value:
             return order
 
-        if self.debug:
-            print('Canceling Order ID: {}'.format(oID))
-
         ccxt_order = self.store.cancel_order(oID, order.data.symbol)
 
         canceled_order_exchange_value, canceled_order_success_value = self.get_order_status_values(ccxt_order,
