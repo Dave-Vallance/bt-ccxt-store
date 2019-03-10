@@ -1,10 +1,12 @@
 import json
+import os
 import unittest
 from unittest.mock import patch, ANY
 
 from backtrader import Strategy, Order
 
 from ccxtbt import CCXTOrder
+from definitions import ROOT_PATH
 from test.ccxtbt.mapping import trading
 
 
@@ -14,22 +16,24 @@ class TestBinanceBroker(unittest.TestCase):
     """
 
     def setUp(self):
+        self.test_mapping_folder_path_prefix = os.path.join(ROOT_PATH, 'test/ccxtbt/mapping/')
         fetch_balance_patcher = patch('ccxt.binance.fetch_balance')
         fetch_balance_patcher.start()
         self.addCleanup(fetch_balance_patcher.stop)
 
-        with open('./mock_balance.json', 'r') as f:
+        with open(self.test_mapping_folder_path_prefix + 'mock_balance.json', 'r') as f:
             mock_balance = json.load(f)
         fetch_balance_patcher.return_value = mock_balance
 
     @patch('ccxt.binance.fetch_order')
     @patch('ccxt.binance.create_order')
     def test_limit_buy(self, binance_create_order_mock, fetch_order_mock):
-        with open('./ccxt_order_result/limit/limit_buy.json', 'r') as f:
+        with open(self.test_mapping_folder_path_prefix + 'ccxt_order_result/limit/limit_buy.json', 'r') as f:
             buy_order_result = json.load(f)
         binance_create_order_mock.return_value = buy_order_result
 
-        with open('./ccxt_order_result/limit/limit_buy_fetch_order.json', 'r') as f:
+        with open(self.test_mapping_folder_path_prefix + 'ccxt_order_result/limit/limit_buy_fetch_order.json',
+                  'r') as f:
             fetch_order_mock.return_value = json.load(f)
 
         class TestStrategy(Strategy):
@@ -52,10 +56,11 @@ class TestBinanceBroker(unittest.TestCase):
     @patch('ccxt.binance.fetch_order')
     @patch('ccxt.binance.create_order')
     def test_limit_sell(self, binance_create_order_mock, fetch_order_mock):
-        with open('./ccxt_order_result/limit/limit_sell.json', 'r') as f:
+        with open(self.test_mapping_folder_path_prefix + 'ccxt_order_result/limit/limit_sell.json', 'r') as f:
             binance_create_order_mock.return_value = json.load(f)
 
-        with open('./ccxt_order_result/limit/limit_sell_fetch_order.json', 'r') as f:
+        with open(self.test_mapping_folder_path_prefix + 'ccxt_order_result/limit/limit_sell_fetch_order.json',
+                  'r') as f:
             fetch_order_mock.return_value = json.load(f)
 
         class TestStrategy(Strategy):
@@ -78,13 +83,14 @@ class TestBinanceBroker(unittest.TestCase):
     @patch('ccxt.binance.cancel_order')
     @patch('ccxt.binance.fetch_order')
     def test_cancel(self, cancel_fetch_order_mock, binance_cancel_order_mock):
-        with open('./ccxt_order_result/limit/limit_buy_fetch_order.json', 'r') as f:
+        with open(self.test_mapping_folder_path_prefix + 'ccxt_order_result/limit/limit_buy_fetch_order.json',
+                  'r') as f:
             ccxt_buy_order = json.load(f)
 
-        with open('./ccxt_order_result/cancel_fetch_order.json', 'r') as f:
+        with open(self.test_mapping_folder_path_prefix + 'ccxt_order_result/cancel_fetch_order.json', 'r') as f:
             cancel_fetch_order_mock.return_value = json.load(f)
 
-        with open('./ccxt_order_result/cancel.json', 'r') as f:
+        with open(self.test_mapping_folder_path_prefix + 'ccxt_order_result/cancel.json', 'r') as f:
             binance_cancel_order_mock.return_value = json.load(f)
 
         class TestStrategy(Strategy):
@@ -104,10 +110,11 @@ class TestBinanceBroker(unittest.TestCase):
     @patch('ccxt.binance.fetch_order')
     @patch('ccxt.binance.create_order')
     def test_market_buy(self, binance_create_order_mock, fetch_order_mock):
-        with open('./ccxt_order_result/market/market_buy.json', 'r') as f:
+        with open(self.test_mapping_folder_path_prefix + 'ccxt_order_result/market/market_buy.json', 'r') as f:
             binance_create_order_mock.return_value = json.load(f)
 
-        with open('./ccxt_order_result/market/market_buy_fetch_order.json', 'r') as f:
+        with open(self.test_mapping_folder_path_prefix + 'ccxt_order_result/market/market_buy_fetch_order.json',
+                  'r') as f:
             fetch_order_mock.return_value = json.load(f)
 
         class TestStrategy(Strategy):
@@ -130,10 +137,11 @@ class TestBinanceBroker(unittest.TestCase):
     @patch('ccxt.binance.fetch_order')
     @patch('ccxt.binance.create_order')
     def test_market_sell(self, binance_create_order_mock, fetch_order_mock):
-        with open('./ccxt_order_result/market/market_sell.json', 'r') as f:
+        with open(self.test_mapping_folder_path_prefix + 'ccxt_order_result/market/market_sell.json', 'r') as f:
             binance_create_order_mock.return_value = json.load(f)
 
-        with open('./ccxt_order_result/market/market_sell_fetch_order.json', 'r') as f:
+        with open(self.test_mapping_folder_path_prefix + 'ccxt_order_result/market/market_sell_fetch_order.json',
+                  'r') as f:
             fetch_order_mock.return_value = json.load(f)
 
         class TestStrategy(Strategy):
@@ -157,10 +165,11 @@ class TestBinanceBroker(unittest.TestCase):
     @patch('ccxt.binance.fetch_order')
     @patch('ccxt.binance.create_order')
     def test_stop_loss_sell_below_market(self, binance_create_order_mock, fetch_order_mock, fetch_ohlcv_mock):
-        with open('./ccxt_order_result/market/market_sell.json', 'r') as f:
+        with open(self.test_mapping_folder_path_prefix + 'ccxt_order_result/market/market_sell.json', 'r') as f:
             binance_create_order_mock.return_value = json.load(f)
 
-        with open('./ccxt_order_result/market/market_sell_fetch_order.json', 'r') as f:
+        with open(self.test_mapping_folder_path_prefix + 'ccxt_order_result/market/market_sell_fetch_order.json',
+                  'r') as f:
             fetch_order_mock.return_value = json.load(f)
 
         # open-time, open, high, low, close, volume
@@ -189,10 +198,11 @@ class TestBinanceBroker(unittest.TestCase):
     @patch('ccxt.binance.fetch_order')
     @patch('ccxt.binance.create_order')
     def test_stop_loss_sell_above_market(self, binance_create_order_mock, fetch_order_mock, fetch_ohlcv_mock):
-        with open('./ccxt_order_result/market/market_sell.json', 'r') as f:
+        with open(self.test_mapping_folder_path_prefix + 'ccxt_order_result/market/market_sell.json', 'r') as f:
             binance_create_order_mock.return_value = json.load(f)
 
-        with open('./ccxt_order_result/market/market_sell_fetch_order.json', 'r') as f:
+        with open(self.test_mapping_folder_path_prefix + 'ccxt_order_result/market/market_sell_fetch_order.json',
+                  'r') as f:
             fetch_order_mock.return_value = json.load(f)
 
         # open-time, open, high, low, close, volume
@@ -221,10 +231,11 @@ class TestBinanceBroker(unittest.TestCase):
     @patch('ccxt.binance.fetch_order')
     @patch('ccxt.binance.create_order')
     def test_stop_loss_buy_below_market(self, binance_create_order_mock, fetch_order_mock, fetch_ohlcv_mock):
-        with open('./ccxt_order_result/market/market_sell.json', 'r') as f:
+        with open(self.test_mapping_folder_path_prefix + 'ccxt_order_result/market/market_sell.json', 'r') as f:
             binance_create_order_mock.return_value = json.load(f)
 
-        with open('./ccxt_order_result/market/market_sell_fetch_order.json', 'r') as f:
+        with open(self.test_mapping_folder_path_prefix + 'ccxt_order_result/market/market_sell_fetch_order.json',
+                  'r') as f:
             fetch_order_mock.return_value = json.load(f)
 
         # open-time, open, high, low, close, volume
@@ -253,10 +264,11 @@ class TestBinanceBroker(unittest.TestCase):
     @patch('ccxt.binance.fetch_order')
     @patch('ccxt.binance.create_order')
     def test_stop_loss_buy_above_market(self, binance_create_order_mock, fetch_order_mock, fetch_ohlcv_mock):
-        with open('./ccxt_order_result/market/market_sell.json', 'r') as f:
+        with open(self.test_mapping_folder_path_prefix + 'ccxt_order_result/market/market_sell.json', 'r') as f:
             binance_create_order_mock.return_value = json.load(f)
 
-        with open('./ccxt_order_result/market/market_sell_fetch_order.json', 'r') as f:
+        with open(self.test_mapping_folder_path_prefix + 'ccxt_order_result/market/market_sell_fetch_order.json',
+                  'r') as f:
             fetch_order_mock.return_value = json.load(f)
 
         # open-time, open, high, low, close, volume

@@ -1,8 +1,10 @@
 import json
+import os
 import unittest
 from unittest.mock import patch
 
 from ccxtbt import CCXTStore, bt
+from definitions import ROOT_PATH
 
 
 class TestMappingFileHandling(unittest.TestCase):
@@ -11,12 +13,14 @@ class TestMappingFileHandling(unittest.TestCase):
     """
 
     def setUp(self):
+        self.test_mapping_folder_path_prefix = os.path.join(ROOT_PATH, 'test/ccxtbt/mapping/')
+        self.mock_balance_path = self.test_mapping_folder_path_prefix + 'mock_balance.json'
         # Reset the singleton on every test run to avoid side effects between tests.
         CCXTStore.DataCls._store._singleton = None
 
     @patch('ccxt.acx.fetch_balance')
     def test_default_internal_mapping(self, fetch_balance_patcher):
-        with open('./mock_balance.json', 'r') as f:
+        with open(self.mock_balance_path, 'r') as f:
             fetch_balance_patcher.return_value = json.load(f)
 
         store = CCXTStore(
@@ -43,7 +47,7 @@ class TestMappingFileHandling(unittest.TestCase):
 
     @patch('ccxt.kraken.fetch_balance')
     def test_specific_exchange_internal_mapping(self, fetch_balance_patcher):
-        with open('./mock_balance.json', 'r') as f:
+        with open(self.mock_balance_path, 'r') as f:
             fetch_balance_patcher.return_value = json.load(f)
 
         store = CCXTStore(
@@ -60,8 +64,8 @@ class TestMappingFileHandling(unittest.TestCase):
 
         assert 'order_types' in mapping, 'No order types found'
         assert 'StopLimit' in mapping['order_types'], 'No \"StopLimit\" found in order types '
-        assert mapping['order_types']['StopLimit'] == 'stop-loss', \
-            'Expected the stop limit order type \"stop-loss\" for Kraken'
+        assert mapping['order_types']['StopLimit'] == 'stop limit', \
+            'Expected the stop limit order type \"stop limit\" for Kraken'
 
         assert 'order_status' in mapping, 'No order status found'
         assert 'closed_order' in mapping['order_status'], 'No \"closed_order\" found in order status'
@@ -70,7 +74,7 @@ class TestMappingFileHandling(unittest.TestCase):
 
     @patch('ccxt.binance.fetch_balance')
     def test_overwritten_mapping(self, fetch_balance_patcher):
-        with open('./mock_balance.json', 'r') as f:
+        with open(self.mock_balance_path, 'r') as f:
             fetch_balance_patcher.return_value = json.load(f)
 
         store = CCXTStore(
