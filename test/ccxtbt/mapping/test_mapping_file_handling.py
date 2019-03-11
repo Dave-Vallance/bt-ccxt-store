@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from ccxtbt import CCXTStore, bt
-from definitions import ROOT_PATH
+from ccxtbt.definitions import ROOT_PATH
 
 
 class TestMappingFileHandling(unittest.TestCase):

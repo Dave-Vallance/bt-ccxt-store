@@ -33,7 +33,7 @@ from backtrader.utils.py3 import with_metaclass
 from ccxt.base.errors import NetworkError, ExchangeError
 
 import ccxtbt
-from definitions import MAPPING_PATH
+from ccxtbt.definitions import MAPPING_PATH
 
 
 class MetaSingleton(MetaParams):

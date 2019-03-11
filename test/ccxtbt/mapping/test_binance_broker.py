@@ -6,7 +6,7 @@ from unittest.mock import patch, ANY
 from backtrader import Strategy, Order
 
 from ccxtbt import CCXTOrder
-from definitions import ROOT_PATH
+from ccxtbt.definitions import ROOT_PATH
 from test.ccxtbt.mapping import trading
 
 
