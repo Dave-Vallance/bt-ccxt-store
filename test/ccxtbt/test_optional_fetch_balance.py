@@ -1,9 +1,9 @@
 import time
 import unittest
 from datetime import datetime
+from unittest.mock import patch
 
 from backtrader import Strategy, Cerebro, TimeFrame
-from ccxt import AuthenticationError
 
 from ccxtbt import CCXTFeed, CCXTStore
 
@@ -18,7 +18,7 @@ class TestFeedInitialFetchBalance(unittest.TestCase):
     For this case it is beneficial to turn off the initial fetching of the balance as it is not really needed and
     it avoids needing to have api keys.
     This makes it possible for users that don't have a Binance api key to run backtesting and unit tests with real
-    ohlcv data.
+    ohlcv data to try out this lib.
     """
 
     def setUp(self):
@@ -32,32 +32,32 @@ class TestFeedInitialFetchBalance(unittest.TestCase):
         """
         CCXTStore._singleton = None
 
-    def test_fetch_balance_throws_error(self):
+    @patch('ccxt.binance.fetch_balance')
+    def test_fetch_balance_throws_error(self, fetch_balance_mock):
         """
-        If no parameter is provided to `CCXTFeed()` it should assume
-        if `initially_fetch_balance` is set to `True` in the `CCXTFeed`
-        it is expected to throw an Authentication error if no credentials
-        are provided.
+        If API keys are provided the store is expected to fetch the balance.
         """
-        self.assertRaises(AuthenticationError, backtesting, initially_fetch_balance=True)
 
-    def test_without_fetch_balance(self):
-        """
-        If `initially_fetch_balance=False` then `CCXTFeed` should instruct
-        the store not to initially fetch the balance.
-        This is expected to should just load the data
-        and not throw an Authentication error.
-        """
-        finished_strategies = backtesting(initially_fetch_balance=False)
-        self.assertEqual(finished_strategies[0].next_runs, 3)
+        config = {
+            'apikey': 'an-api-key',
+            'secret': 'an-api-secret',
+            'enableRateLimit': True,
+            'nonce': lambda: str(int(time.time() * 1000))
+        }
+        backtesting(config)
+
+        fetch_balance_mock.assert_called_once()
 
     def test_default_fetch_balance_param(self):
         """
-        If no parameter is provided to `CCXTFeed()` it should assume
-        `initially_fetch_balance=False` and not throw an error.
-        Instead it should just load the data.
+        If API keys are provided the store is expected to
+        not fetch the balance and load the ohlcv data without them.
         """
-        finished_strategies = backtesting()
+        config = {
+            'enableRateLimit': True,
+            'nonce': lambda: str(int(time.time() * 1000))
+        }
+        finished_strategies = backtesting(config)
         self.assertEqual(finished_strategies[0].next_runs, 3)
 
 
@@ -72,29 +72,21 @@ class TestStrategy(Strategy):
         self.next_runs += 1
 
 
-def backtesting(initially_fetch_balance=None):
+def backtesting(config):
     cerebro = Cerebro()
 
     cerebro.addstrategy(TestStrategy)
 
-    # 'apiKey' and 'secret' are skipped
-    config = {'enableRateLimit': True, 'nonce': lambda: str(int(time.time() * 1000))}
-
-    feed_params = dict(exchange='binance',
-                       dataname='BNB/USDT',
-                       timeframe=TimeFrame.Minutes,
-                       fromdate=datetime(2019, 1, 1, 0, 0),
-                       todate=datetime(2019, 1, 1, 0, 2),
-                       compression=1,
-                       ohlcv_limit=2,
-                       currency='BNB',
-                       config=config,
-                       retries=5)
-    if initially_fetch_balance:
-        feed_params['initially_fetch_balance'] = initially_fetch_balance
-
-    feed = CCXTFeed(**feed_params)
-    cerebro.adddata(feed)
+    cerebro.adddata(CCXTFeed(exchange='binance',
+                             dataname='BNB/USDT',
+                             timeframe=TimeFrame.Minutes,
+                             fromdate=datetime(2019, 1, 1, 0, 0),
+                             todate=datetime(2019, 1, 1, 0, 2),
+                             compression=1,
+                             ohlcv_limit=2,
+                             currency='BNB',
+                             config=config,
+                             retries=5))
 
     finished_strategies = cerebro.run()
     return finished_strategies
