@@ -52,8 +52,6 @@ with open(abs_file_path, 'r') as f:
 
 cerebro = bt.Cerebro(quicknotify=True)
 
-cerebro.broker.setcash(10.0)
-
 # Add the strategy
 cerebro.addstrategy(TestStrategy)
 
@@ -66,32 +64,7 @@ config = {'apiKey': params["binance"]["apikey"],
 
 store = CCXTStore(exchange='binance', currency='BNB', config=config, retries=5, debug=True)
 
-# Get the broker and pass any kwargs if needed.
-# ----------------------------------------------
-# Broker mappings have been added since some exchanges expect different values
-# to the defaults. Case in point, Kraken vs Bitmex. NOTE: Broker mappings are not
-# required if the broker uses the same values as the defaults in CCXTBroker.
-broker_mapping = {
-    'order_types': {
-        bt.Order.Market: 'market',
-        bt.Order.Limit: 'limit',
-        bt.Order.Stop: 'stop-loss',  # stop-loss for kraken, stop for bitmex
-        bt.Order.StopLimit: 'stop limit'
-    },
-    'mappings': {
-        'closed_order': {
-            'key': 'status',
-            'value': 'closed'
-        },
-        'canceled_order': {
-            'key': 'status',
-            'value': 'canceled'
-        }
-    }
-}
-
-broker = store.getbroker(broker_mapping=broker_mapping)
-cerebro.setbroker(broker)
+cerebro.setbroker(store.getbroker())
 
 # Get our data
 # Drop newest will prevent us from loading partial data from incomplete candles

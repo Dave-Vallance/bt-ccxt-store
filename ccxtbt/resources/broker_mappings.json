@@ -1,0 +1,73 @@
+{
+  "exchanges": {
+    "default": {
+      "order_types": {
+        "Market": "market",
+        "Limit": "limit",
+        "Stop": "stop-loss",
+        "StopLimit": "stop limit"
+      },
+      "order_status": {
+        "closed_order": {
+          "key": "status",
+          "value": "closed"
+        },
+        "canceled_order": {
+          "key": "result",
+          "value": 1
+        }
+      }
+    },
+    "Kraken": {
+      "version": {
+        "default": {
+          "order_types": {
+            "Market": "market",
+            "Limit": "limit",
+            "Stop": "stop-loss",
+            "StopLimit": "stop limit"
+          },
+          "order_status": {
+            "closed_order": {
+              "key": "status",
+              "value": "closed"
+            },
+            "canceled_order": {
+              "key": "result",
+              "value": 1
+            }
+          }
+        }
+      }
+    },
+    "BitMEX": {
+      "version": {
+        "default": {
+          "order_types": {
+            "Market": "market",
+            "Limit": "limit",
+            "Stop": "stop-loss",
+            "StopLimit": "stop"
+          },
+          "order_status": {
+            "closed_order": {
+              "key": "status",
+              "value": "closed"
+            },
+            "canceled_order": {
+              "key": "result",
+              "value": 1
+            }
+          }
+        }
+      }
+    },
+    "Binance": {
+      "version": {
+        "default": {
+          "broker_class": "BinanceBroker"
+        }
+      }
+    }
+  }
+}

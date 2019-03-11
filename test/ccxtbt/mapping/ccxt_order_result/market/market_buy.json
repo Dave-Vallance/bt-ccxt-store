@@ -1,0 +1,69 @@
+{
+  "info": {
+    "symbol": "BNBUSDT",
+    "orderId": 87835347,
+    "clientOrderId": "2eTHqlWKCNFS9xhdbQWOAG",
+    "transactTime": 1551878320909,
+    "price": "0.00000000",
+    "origQty": "1.00000000",
+    "executedQty": "1.00000000",
+    "cummulativeQuoteQty": "13.29490000",
+    "status": "FILLED",
+    "timeInForce": "GTC",
+    "type": "MARKET",
+    "side": "BUY",
+    "fills": [
+      {
+        "price": "13.29490000",
+        "qty": "1.00000000",
+        "commission": "0.00075000",
+        "commissionAsset": "BNB",
+        "tradeId": 20996988
+      }
+    ]
+  },
+  "id": "87835347",
+  "timestamp": 1551878320909,
+  "datetime": "2019-03-06T13:18:40.909Z",
+  "lastTradeTimestamp": null,
+  "symbol": "BNB/USDT",
+  "type": "market",
+  "side": "buy",
+  "price": 13.2949,
+  "amount": 1.0,
+  "cost": 13.2949,
+  "average": 13.2949,
+  "filled": 1.0,
+  "remaining": 0.0,
+  "status": "closed",
+  "fee": {
+    "cost": 0.00075,
+    "currency": "BNB"
+  },
+  "trades": [
+    {
+      "info": {
+        "price": "13.29490000",
+        "qty": "1.00000000",
+        "commission": "0.00075000",
+        "commissionAsset": "BNB",
+        "tradeId": 20996988
+      },
+      "timestamp": null,
+      "datetime": null,
+      "symbol": "BNB/USDT",
+      "id": null,
+      "order": null,
+      "type": null,
+      "takerOrMaker": null,
+      "side": null,
+      "price": 13.2949,
+      "cost": 13.2949,
+      "amount": 1.0,
+      "fee": {
+        "cost": 0.00075,
+        "currency": "BNB"
+      }
+    }
+  ]
+}

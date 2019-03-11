@@ -21,19 +21,24 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
+import json
 import time
+from datetime import datetime
 from functools import wraps
 
-import ccxt
-from ccxt.base.errors import NetworkError, ExchangeError
-from datetime import datetime
 import backtrader as bt
+import ccxt
 from backtrader.metabase import MetaParams
-from backtrader.utils.py3 import queue, with_metaclass
-import json
+from backtrader.utils.py3 import with_metaclass
+from ccxt.base.errors import NetworkError, ExchangeError
+
+import ccxtbt
+from ccxtbt.definitions import MAPPING_PATH
+
 
 class MetaSingleton(MetaParams):
     '''Metaclass to make a metaclassed class a singleton'''
+
     def __init__(cls, name, bases, dct):
         super(MetaSingleton, cls).__init__(name, bases, dct)
         cls._singleton = None
@@ -90,9 +95,68 @@ class CCXTStore(with_metaclass(MetaSingleton, object)):
         return cls.DataCls(*args, **kwargs)
 
     @classmethod
-    def getbroker(cls, *args, **kwargs):
-        '''Returns broker with *args, **kwargs from registered ``BrokerCls``'''
-        return cls.BrokerCls(*args, **kwargs)
+    def getbroker(cls, broker_mapping=None, *args, **kwargs):
+        new_broker_mapping = cls.load_broker_mappings(broker_mapping, exchange=cls._singleton.exchange.name)
+        if 'broker_class' in new_broker_mapping:
+            return getattr(ccxtbt.mapping, "BinanceBroker")(broker_mapping=new_broker_mapping, *args, **kwargs)
+        else:
+            # Returns broker with *args, **kwargs from registered ``BrokerCls``
+            return cls.BrokerCls(broker_mapping=new_broker_mapping, *args, **kwargs)
+
+    @classmethod
+    def load_broker_mappings(cls, broker_mapping2overwrite, exchange):
+        """
+        Expected format for broker_mapping2overwrite:
+        broker_mapping = {
+            'order_types': {
+                bt.Order.Market: 'market',
+                bt.Order.Limit: 'limit',
+                bt.Order.Stop: 'stop-loss',
+                bt.Order.StopLimit: 'stop limit'
+            },
+            'mappings': {
+                'closed_order': {
+                    'key': 'status',
+                    'value': 'closed'
+                },
+                'canceled_order': {
+                    'key': 'result',
+                    'value': 1}
+            }
+        }
+        """
+        if broker_mapping2overwrite:
+            broker_mapping = {
+                "order_types": {
+                    "Market": broker_mapping2overwrite['order_types'][bt.Order.Market],
+                    "Limit": broker_mapping2overwrite['order_types'][bt.Order.Limit],
+                    "Stop": broker_mapping2overwrite['order_types'][bt.Order.Stop],
+                    "StopLimit": broker_mapping2overwrite['order_types'][bt.Order.StopLimit]
+                },
+                "order_status": {
+                    "closed_order": {
+                        "key": broker_mapping2overwrite['mappings']['closed_order']['key'],
+                        "value": broker_mapping2overwrite['mappings']['closed_order']['value']
+                    },
+                    "canceled_order": {
+                        "key": broker_mapping2overwrite['mappings']['canceled_order']['key'],
+                        "value": broker_mapping2overwrite['mappings']['canceled_order']['value']
+                    }
+                }
+            }
+            return broker_mapping
+        else:
+            # load the general mappings file
+            with open(MAPPING_PATH, 'r') as f:
+                broker_mappings = json.load(f)
+                try:
+                    broker_mapping = broker_mappings["exchanges"][exchange]
+                    # load only the default version for now
+                    broker_mapping = broker_mapping["version"]["default"]
+                except KeyError:
+                    # use the default exchange mapping if there is non for the currently used exchange
+                    broker_mapping = broker_mappings["exchanges"]["default"]
+                return broker_mapping
 
     def __init__(self, exchange, currency, config, retries, broker_delay=None, debug=False):
         self.exchange = getattr(ccxt, exchange)(config)
@@ -136,7 +200,6 @@ class CCXTStore(with_metaclass(MetaSingleton, object)):
 
         return retry_method
 
-
     @retry
     def get_wallet_balance(self, currency, params=None):
         balance = self.exchange.fetch_balance(params)
@@ -151,7 +214,7 @@ class CCXTStore(with_metaclass(MetaSingleton, object)):
     @retry
     def getposition(self):
         return self._value
-        #return self.getvalue(currency)
+        # return self.getvalue(currency)
 
     @retry
     def create_order(self, symbol, order_type, side, amount, price, params):
@@ -170,7 +233,7 @@ class CCXTStore(with_metaclass(MetaSingleton, object)):
     @retry
     def fetch_ohlcv(self, symbol, timeframe, since, limit, params={}):
         if self.debug:
-            print('Fetching: {}, TF: {}, Since: {}, Limit: {}'.format(symbol,timeframe,since,limit))
+            print('Fetching: {}, TF: {}, Since: {}, Limit: {}'.format(symbol, timeframe, since, limit))
         return self.exchange.fetch_ohlcv(symbol, timeframe=timeframe, since=since, limit=limit, params=params)
 
     @retry

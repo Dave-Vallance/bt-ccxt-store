@@ -5,7 +5,7 @@ I have been working on.
 Some additions have been made to this repo that I find useful. Your mileage may
 vary.
 
-Check out the example script to see how to setup and run on Kraken.
+Check out the sample scripts in `./samples` to see how to setup and run on Kraken and Binance.
 
 
 # Additions / Changes
@@ -15,11 +15,6 @@ Check out the example script to see how to setup and run on Kraken.
 - Added check for broker fills (complete notification, Cancel notification).
   Note that some exchanges may send different notification data
 
-- Broker mapping added as I noticed that there differences between the expected
-  order_types and retuned status's from canceling an order
-
-- Added a new mappings parameter to the script with defaults.
-
 - Added a new get_wallet_balance method. This will allow manual checking of the balance.
   The method will allow setting parameters. Useful for getting margin balances
 
@@ -28,28 +23,28 @@ Check out the example script to see how to setup and run on Kraken.
       with rest calls. As such, these will just return the last values called from getbalance().
       Because getbalance() will not be called by cerebro, you need to do this manually as and when  
       you want the information.
+- Broker mapping:
+     Naturally Backtrader uses general order types and doesn't know about specifics of 
+     individual crypto exchanges. E.g. status names, order type names, parameter names,....
+     This is why a mapping is needed between the parameter Backtrader passes on 
+     and the ones CCXT sends to the crypto exchanges.
 
-- **Note:** The broker mapping should contain a new dict for order_types and mappings like below:
+    Currently we support three means of mappings:
+      
+    1. The static internal mappings of order types and status.
+        It can be found in `ccxtbt/resources/broker_mappings.json` and can be refined and
+        extended on demand.
+      
+    2. The overwritable static mapping via `store.getbroker(broker_mapping=broker_mapping)` 
+        see `test/ccxtbt/mapping/test_mapping_file_handling.py:test_overwritten_mapping()` 
+      
+    3. The overwritable broker methods to extend the mapping dynamically at runtime with custom logic. 
+        This has been needed for Binance e.g. because it doesn't have a 1:1 mapping from the
+        `stop-limit` Backtrader execution type to a single Binance order type constant. 
+        The Binance constants depend on the stop price being above or below the market price 
+        and on being a stop-limit buy order or a stop-limit sell order. 
+        See `test/ccxtbt/mapping/test_binance_broker.py`.
 
-```
-  broker_mapping = {
-      'order_types': {
-          bt.Order.Market: 'market',
-          bt.Order.Limit: 'limit',
-          bt.Order.Stop: 'stop-loss', #stop-loss for kraken, stop for bitmex
-          bt.Order.StopLimit: 'stop limit'
-      },
-      'mappings':{
-          'closed_order':{
-              'key': 'status',
-              'value':'closed'
-              },
-          'canceled_order':{
-              'key': 'result',
-              'value':1}
-              }
-      }
-```
 
   - Added new private_end_point method to allow using any private non-unified end point.
     An example for getting a list of postions and then closing them on Bitfinex
