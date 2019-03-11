@@ -12,6 +12,6 @@ setup(
     install_requires=['backtrader', 'ccxt'],
     package_data={
         # If any package contains *.json files, include them:
-        '': ['*.json'],
-    },
+        '': ['*.json']
+    }
 )
