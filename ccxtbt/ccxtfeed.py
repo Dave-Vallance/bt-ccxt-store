@@ -22,14 +22,15 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
+import time
 from collections import deque
 from datetime import datetime
+
 import backtrader as bt
 from backtrader.feed import DataBase
 from backtrader.utils.py3 import with_metaclass
-from backtrader.metabase import MetaParams
+
 from .ccxtstore import CCXTStore
-import time
 
 
 class MetaCCXTFeed(DataBase.__class__):
@@ -78,14 +79,14 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
     # States for the Finite State Machine in _load
     _ST_LIVE, _ST_HISTORBACK, _ST_OVER = range(3)
 
-    #def __init__(self, exchange, symbol, ohlcv_limit=None, config={}, retries=5):
+    # def __init__(self, exchange, symbol, ohlcv_limit=None, config={}, retries=5):
     def __init__(self, **kwargs):
         self.symbol = self.p.dataname
         # self.store = CCXTStore(exchange, config, retries)
         self.store = self._store(**kwargs)
-        self._data = deque() # data queue for price data
-        self._last_id = '' # last processed trade id for ohlcv
-        self._last_ts = 0 # last processed timestamp for ohlcv
+        self._data = deque()  # data queue for price data
+        self._last_id = ''  # last processed trade id for ohlcv
+        self._last_ts = 0  # last processed timestamp for ohlcv
 
     def start(self, ):
         DataBase.start(self)
@@ -98,7 +99,6 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
         else:
             self._state = self._ST_LIVE
             self.put_notification(self.LIVE)
-
 
     def _load(self):
         if self._state == self._ST_OVER:
@@ -148,18 +148,20 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
         while True:
             dlen = len(self._data)
 
-
             if self.p.debug:
                 # TESTING
                 since_dt = datetime.utcfromtimestamp(since // 1000) if since is not None else 'NA'
                 print('---- NEW REQUEST ----')
-                print('{} - Requesting: Since TS {} Since date {} granularity {}, limit {}, params'.format(datetime.utcnow(),since, since_dt, granularity, limit, self.p.fetch_ohlcv_params))
+                print('{} - Requesting: Since TS {} Since date {} granularity {}, limit {}, params'.format(
+                    datetime.utcnow(), since, since_dt, granularity, limit, self.p.fetch_ohlcv_params))
                 data = sorted(self.store.fetch_ohlcv(self.symbol, timeframe=granularity,
-                                                           since=since, limit=limit, params=self.p.fetch_ohlcv_params))
+                                                     since=since, limit=limit, params=self.p.fetch_ohlcv_params))
                 try:
                     for i, ohlcv in enumerate(data):
                         tstamp, open_, high, low, close, volume = ohlcv
-                        print('{} - Data {}: {} - TS {} Time {}'.format(datetime.utcnow(), i, datetime.utcfromtimestamp(tstamp // 1000), tstamp, (time.time() * 1000)))
+                        print('{} - Data {}: {} - TS {} Time {}'.format(datetime.utcnow(), i,
+                                                                        datetime.utcfromtimestamp(tstamp // 1000),
+                                                                        tstamp, (time.time() * 1000)))
                         # ------------------------------------------------------------------
                 except IndexError:
                     print('Index Error: Data = {}'.format(data))
@@ -167,7 +169,7 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
             else:
 
                 data = sorted(self.store.fetch_ohlcv(self.symbol, timeframe=granularity,
-                                                           since=since, limit=limit, params=self.p.fetch_ohlcv_params))
+                                                     since=since, limit=limit, params=self.p.fetch_ohlcv_params))
 
             # Check to see if dropping the latest candle will help with
             # exchanges which return partial data
@@ -176,8 +178,8 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
 
             for ohlcv in data:
 
-            #for ohlcv in sorted(self.store.fetch_ohlcv(self.symbol, timeframe=granularity,
-            #                                           since=since, limit=limit, params=self.p.fetch_ohlcv_params)):
+                # for ohlcv in sorted(self.store.fetch_ohlcv(self.symbol, timeframe=granularity,
+                #                                           since=since, limit=limit, params=self.p.fetch_ohlcv_params)):
 
                 if None in ohlcv:
                     continue
@@ -185,7 +187,7 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
                 tstamp = ohlcv[0]
 
                 # Prevent from loading incomplete data
-                #if tstamp > (time.time() * 1000):
+                # if tstamp > (time.time() * 1000):
                 #    continue
 
                 if tstamp > self._last_ts:
@@ -215,7 +217,7 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
         try:
             trade = self._data.popleft()
         except IndexError:
-            return None # no data in the queue
+            return None  # no data in the queue
 
         trade_time, price, size = trade
 
@@ -232,7 +234,7 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
         try:
             ohlcv = self._data.popleft()
         except IndexError:
-            return None # no data in the queue
+            return None  # no data in the queue
 
         tstamp, open_, high, low, close, volume = ohlcv
 
