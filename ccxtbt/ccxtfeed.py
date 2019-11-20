@@ -59,7 +59,7 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
     Changes From Ed's pacakge
 
         - Added option to send some additional fetch_ohlcv_params. Some exchanges (e.g Bitmex)
-          support sending some additional fetch parameters. 
+          support sending some additional fetch parameters.
         - Added drop_newest option to avoid loading incomplete candles where exchanges
           do not support sending ohlcv params to prevent returning partial data
 
@@ -81,7 +81,6 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
 
     # def __init__(self, exchange, symbol, ohlcv_limit=None, config={}, retries=5):
     def __init__(self, **kwargs):
-        self.symbol = self.p.dataname
         # self.store = CCXTStore(exchange, config, retries)
         self.store = self._store(**kwargs)
         self._data = deque()  # data queue for price data
@@ -154,7 +153,7 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
                 print('---- NEW REQUEST ----')
                 print('{} - Requesting: Since TS {} Since date {} granularity {}, limit {}, params'.format(
                     datetime.utcnow(), since, since_dt, granularity, limit, self.p.fetch_ohlcv_params))
-                data = sorted(self.store.fetch_ohlcv(self.symbol, timeframe=granularity,
+                data = sorted(self.store.fetch_ohlcv(self.p.dataname, timeframe=granularity,
                                                      since=since, limit=limit, params=self.p.fetch_ohlcv_params))
                 try:
                     for i, ohlcv in enumerate(data):
@@ -168,7 +167,7 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
                 print('---- REQUEST END ----')
             else:
 
-                data = sorted(self.store.fetch_ohlcv(self.symbol, timeframe=granularity,
+                data = sorted(self.store.fetch_ohlcv(self.p.dataname, timeframe=granularity,
                                                      since=since, limit=limit, params=self.p.fetch_ohlcv_params))
 
             # Check to see if dropping the latest candle will help with
@@ -178,7 +177,7 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
 
             for ohlcv in data:
 
-                # for ohlcv in sorted(self.store.fetch_ohlcv(self.symbol, timeframe=granularity,
+                # for ohlcv in sorted(self.store.fetch_ohlcv(self.p.dataname, timeframe=granularity,
                 #                                           since=since, limit=limit, params=self.p.fetch_ohlcv_params)):
 
                 if None in ohlcv:
@@ -202,9 +201,9 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
     def _load_ticks(self):
         if self._last_id is None:
             # first time get the latest trade only
-            trades = [self.store.fetch_trades(self.symbol)[-1]]
+            trades = [self.store.fetch_trades(self.p.dataname)[-1]]
         else:
-            trades = self.store.fetch_trades(self.symbol)
+            trades = self.store.fetch_trades(self.p.dataname)
 
         for trade in trades:
             trade_id = trade['id']

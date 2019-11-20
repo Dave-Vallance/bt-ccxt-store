@@ -192,7 +192,7 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
                 print('Fetching Order ID: {}'.format(oID))
 
             # Get the order
-            ccxt_order = self.store.fetch_order(oID, o_order.data.symbol)
+            ccxt_order = self.store.fetch_order(oID, o_order.data.p.dataname)
 
             if self.debug:
                 print(json.dumps(ccxt_order, indent=self.indent))
@@ -211,10 +211,10 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
         # Extract CCXT specific params if passed to the order
         params = params['params'] if 'params' in params else params
 
-        ret_ord = self.store.create_order(symbol=data.symbol, order_type=order_type, side=side,
+        ret_ord = self.store.create_order(symbol=data.p.dataname, order_type=order_type, side=side,
                                           amount=amount, price=price, params=params)
 
-        _order = self.store.fetch_order(ret_ord['id'], data.symbol)
+        _order = self.store.fetch_order(ret_ord['id'], data.p.dataname)
 
         order = CCXTOrder(owner, data, _order)
         order.price = ret_ord['price']
@@ -249,7 +249,7 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
 
         # check first if the order has already been filled otherwise an error
         # might be raised if we try to cancel an order that is not open.
-        ccxt_order = self.store.fetch_order(oID, order.data.symbol)
+        ccxt_order = self.store.fetch_order(oID, order.data.p.dataname)
 
         if self.debug:
             print(json.dumps(ccxt_order, indent=self.indent))
@@ -257,7 +257,7 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
         if ccxt_order[self.mappings['closed_order']['key']] == self.mappings['closed_order']['value']:
             return order
 
-        ccxt_order = self.store.cancel_order(oID, order.data.symbol)
+        ccxt_order = self.store.cancel_order(oID, order.data.p.dataname)
 
         if self.debug:
             print(json.dumps(ccxt_order, indent=self.indent))
