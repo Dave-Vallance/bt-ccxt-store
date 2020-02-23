@@ -4,5 +4,10 @@
     "apikey": "your api key",
     "secret": "your api secret",
     "testorders": true
+  },
+  "bitmex": {
+    "apikey": "your api key",
+    "secret": "your api secret",
+    "testorders": true
   }
 }
