@@ -194,6 +194,7 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
                         print('Adding: {}'.format(ohlcv))
                     self._data.append(ohlcv)
                     self._last_ts = tstamp
+                    since = tstamp + 1
 
             if dlen == len(self._data):
                 break
