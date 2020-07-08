@@ -188,7 +188,7 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
     def next(self):
         if self.debug:
             print('Broker next() called')
-        
+
         for o_order in list(self.open_orders):
             oID = o_order.ccxt_order['id']
 
@@ -199,14 +199,14 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
 
             # Get the order
             ccxt_order = self.store.fetch_order(oID, o_order.data.p.dataname)
-            
+
             # Check for new fills
-            if 'trades' in ccxt_order:
+            if 'trades' in ccxt_order and ccxt_order['trades'] not None:
                 for fill in ccxt_order['trades']:
                     if fill not in o_order.executed_fills:
-                        o_order.execute(fill['datetime'], fill['amount'], fill['price'], 
-                                        0, 0.0, 0.0, 
-                                        0, 0.0, 0.0, 
+                        o_order.execute(fill['datetime'], fill['amount'], fill['price'],
+                                        0, 0.0, 0.0,
+                                        0, 0.0, 0.0,
                                         0.0, 0.0,
                                         0, 0.0)
                         o_order.executed_fills.append(fill['id'])
