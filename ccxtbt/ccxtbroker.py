@@ -147,8 +147,14 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
 
     def get_wallet_balance(self, currency, params={}):
         balance = self.store.get_wallet_balance(currency, params=params)
-        cash = balance['free'][currency] if balance['free'][currency] else 0
-        value = balance['total'][currency] if balance['total'][currency] else 0
+        try:
+            cash = balance['free'][currency] if balance['free'][currency] else 0
+        except KeyError:  # never funded or eg. all USD exchanged
+            cash = 0
+        try:
+            value = balance['total'][currency] if balance['total'][currency] else 0
+        except KeyError:  # never funded or eg. all USD exchanged
+            value = 0
         return cash, value
 
     def getcash(self):
