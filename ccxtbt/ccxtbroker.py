@@ -139,6 +139,8 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
         self.startingcash = self.store._cash
         self.startingvalue = self.store._value
 
+        self.use_order_params = True
+
     def get_balance(self):
         self.store.get_balance()
         self.cash = self.store._cash
@@ -201,7 +203,7 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
             ccxt_order = self.store.fetch_order(oID, o_order.data.p.dataname)
 
             # Check for new fills
-            if 'trades' in ccxt_order and ccxt_order['trades'] not None:
+            if 'trades' in ccxt_order and ccxt_order['trades'] is not None:
                 for fill in ccxt_order['trades']:
                     if fill not in o_order.executed_fills:
                         o_order.execute(fill['datetime'], fill['amount'], fill['price'],
@@ -228,9 +230,18 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
         created = int(data.datetime.datetime(0).timestamp()*1000)
         # Extract CCXT specific params if passed to the order
         params = params['params'] if 'params' in params else params
-        params['created'] = created  # Add timestamp of order creation for backtesting
-        ret_ord = self.store.create_order(symbol=data.p.dataname, order_type=order_type, side=side,
-                                          amount=amount, price=price, params=params)
+        if self.use_order_params:
+            try:
+                # all params are exchange specific: https://github.com/ccxt/ccxt/wiki/Manual#custom-order-params
+                params['created'] = created  # Add timestamp of order creation for backtesting
+                ret_ord = self.store.create_order(symbol=data.p.dataname, order_type=order_type, side=side,
+                                                  amount=amount, price=price, params=params)
+            except:
+                # save some API calls after failure
+                self.use_order_params = False
+        else:
+            ret_ord = self.store.create_order(symbol=data.p.dataname, order_type=order_type, side=side,
+                                              amount=amount, price=price)
 
         _order = self.store.fetch_order(ret_ord['id'], data.p.dataname)
 
