@@ -226,6 +226,10 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
                 self.get_balance()
 
     def _submit(self, owner, data, exectype, side, amount, price, params):
+        if amount == 0 or price == 0:
+            if self.debug:
+                print("Not submitting failing order with amount or size 0")
+            return None
         order_type = self.order_types.get(exectype) if exectype else 'market'
         created = int(data.datetime.datetime(0).timestamp()*1000)
         # Extract CCXT specific params if passed to the order
