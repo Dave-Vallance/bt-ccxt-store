@@ -230,7 +230,10 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
         created = int(data.datetime.datetime(0).timestamp()*1000)
         # Extract CCXT specific params if passed to the order
         params = params['params'] if 'params' in params else params
-        if self.use_order_params:
+        if not self.use_order_params:
+            ret_ord = self.store.create_order(symbol=data.p.dataname, order_type=order_type, side=side,
+                                              amount=amount, price=price, params={})
+        else:
             try:
                 # all params are exchange specific: https://github.com/ccxt/ccxt/wiki/Manual#custom-order-params
                 params['created'] = created  # Add timestamp of order creation for backtesting
@@ -239,9 +242,7 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
             except:
                 # save some API calls after failure
                 self.use_order_params = False
-        else:
-            ret_ord = self.store.create_order(symbol=data.p.dataname, order_type=order_type, side=side,
-                                              amount=amount, price=price)
+                return None
 
         _order = self.store.fetch_order(ret_ord['id'], data.p.dataname)
 
