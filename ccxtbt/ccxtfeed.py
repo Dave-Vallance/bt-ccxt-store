@@ -108,6 +108,9 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
                 if self._timeframe == bt.TimeFrame.Ticks:
                     return self._load_ticks()
                 else:
+                    start = datetime.utcnow()
+                    if start.second < 5:
+                         time.sleep(5 - start.second)
                     self._fetch_ohlcv()
                     ret = self._load_ohlcv()
                     if self.p.debug:
