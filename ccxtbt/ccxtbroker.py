@@ -195,7 +195,7 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
             ccxt_order = self.store.fetch_order(oID, o_order.data.p.dataname)
             
             # Check for new fills
-            if 'trades' in ccxt_order:
+            if 'trades' in ccxt_order and ccxt_order['trades']:
                 for fill in ccxt_order['trades']:
                     if fill not in o_order.executed_fills:
                         o_order.execute(fill['datetime'], fill['amount'], fill['price'], 
