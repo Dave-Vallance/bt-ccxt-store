@@ -146,7 +146,6 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
 
         while True:
             dlen = len(self._data)
-            last_since = since
 
             if self.p.debug:
                 # TESTING
@@ -194,10 +193,10 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
                     if self.p.debug:
                         print('Adding: {}'.format(ohlcv))
                     self._data.append(ohlcv)
-                    since = tstamp + 1
-            
-            data_length = len(self._data)
-            if data_length >= limit or since == last_since or last_since == None:
+                    self._last_ts = tstamp
+                    since = self._last_ts
+
+            if dlen == len(self._data):
                 break
 
     def _load_ticks(self):
