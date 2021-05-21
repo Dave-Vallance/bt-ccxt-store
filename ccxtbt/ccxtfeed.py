@@ -84,7 +84,8 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
         # self.store = CCXTStore(exchange, config, retries)
         self.store = self._store(**kwargs)
         self._data = deque()  # data queue for price data
-        self._last_id = ''  # last processed trade id for ohlcv
+        self.trade_id_dict=dict()
+        #self._last_id = ''  # last processed trade id for ohlcv
         self._last_ts = 0  # last processed timestamp for ohlcv
 
     def start(self, ):
@@ -199,19 +200,24 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
                 break
 
     def _load_ticks(self):
-        if self._last_id is None:
+        pre_last_id=None
+        if self.p.dataname in self.trade_id_dict:
+            pre_last_id=self.trade_id_dict.get(self.p.dataname)
+        if pre_last_id is None:
+            self.trade_id_dict[self.p.dataname] = pre_last_id
             # first time get the latest trade only
             trades = [self.store.fetch_trades(self.p.dataname)[-1]]
         else:
             trades = self.store.fetch_trades(self.p.dataname)
 
         for trade in trades:
-            trade_id = trade['id']
+            current_last_id = trade['id']
 
-            if trade_id > self._last_id:
+
+            if current_last_id > self.pre_last_id:
                 trade_time = datetime.strptime(trade['datetime'], '%Y-%m-%dT%H:%M:%S.%fZ')
                 self._data.append((trade_time, float(trade['price']), float(trade['amount'])))
-                self._last_id = trade_id
+                self.trade_id_dict[self.p.dataname] = current_last_id
 
         try:
             trade = self._data.popleft()
