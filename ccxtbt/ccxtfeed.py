@@ -55,6 +55,7 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
     params = (
         ('historical', False),  # only historical download
         ('backfill_start', False),  # do backfilling at the start
+        ('ohlcv_limit', 1000),
     )
     _store = CCXTStore
     # States for the Finite State Machine in _load
@@ -62,7 +63,6 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
 
     def __init__(self, **kwargs):
         self.symbol = self.p.dataname
-        self.ohlcv_limit = 1000
 
         self.store = self._store(**kwargs)
 
@@ -121,7 +121,7 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
             else:
                 since = None
 
-        limit = self.ohlcv_limit
+        limit = self.p.ohlcv_limit
 
         while True:
             dlen = len(self._data)
