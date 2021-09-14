@@ -67,8 +67,8 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
     Added a new get_wallet_balance method. This will allow manual checking of the any coins
         The method will allow setting parameters. Useful for dealing with multiple assets
 
-    Modified getcash() and getvalue():
-        Backtrader will call getcash and getvalue before and after next, slowing things down
+    Modified get_cash() and get_value():
+        Backtrader will call get_cash and get_value before and after next, slowing things down
         with rest calls. As such, th
 
     The broker mapping should contain a new dict for order_types and mappings like below:
@@ -151,15 +151,13 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
         value = balance['total'][currency] if balance['total'][currency] else 0
         return cash, value
 
-    def getcash(self):
+    def get_cash(self):
         # Get cash seems to always be called before get value
         # Therefore it makes sense to add getbalance here.
-        # return self.store.getcash(self.currency)
         self.cash = self.store._cash
         return self.cash
 
-    def getvalue(self, datas=None):
-        # return self.store.getvalue(self.currency)
+    def get_value(self, datas=None):
         self.value = self.store._value
         return self.value
 
@@ -172,8 +170,7 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
     def notify(self, order):
         self.notifs.put(order)
 
-    def getposition(self, data, clone=True):
-        # return self.o.getposition(data._dataname, clone=clone)
+    def get_position(self, data, clone=True):
         pos = self.positions[data._dataname]
         if clone:
             pos = pos.clone()
@@ -210,7 +207,7 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
 
             # Check if the order is closed
             if ccxt_order[self.mappings['closed_order']['key']] == self.mappings['closed_order']['value']:
-                pos = self.getposition(o_order.data, clone=False)
+                pos = self.get_position(o_order.data, clone=False)
                 pos.update(o_order.size, o_order.price)
                 o_order.completed()
                 self.notify(o_order)
