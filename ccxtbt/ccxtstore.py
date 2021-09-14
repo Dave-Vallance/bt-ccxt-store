@@ -162,7 +162,7 @@ class CCXTStore(with_metaclass(MetaSingleton, object)):
         self._value = value if value else 0
 
     @retry
-    def getposition(self):
+    def get_position(self):
         return self._value
         # return self.getvalue(currency)
 
