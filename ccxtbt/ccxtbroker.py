@@ -77,7 +77,7 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
         'order_types': {
             bt.Order.Market: 'market',
             bt.Order.Limit: 'limit',
-            bt.Order.Stop: 'stop-loss', #stop-loss for kraken, stop for bitmex
+            bt.Order.Stop: 'stop', #stop-loss for kraken, stop for bitmex
             bt.Order.StopLimit: 'stop limit'
         },
         'mappings':{
@@ -282,8 +282,8 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
             self.notify(order)
         return order
 
-    def get_orders_open(self, safe=False):
-        return self.store.fetch_open_orders()
+    def get_orders_open(self, symbol=None, safe=False):
+        return self.store.fetch_open_orders(symbol)
 
     def private_end_point(self, type, endpoint, params):
         '''
