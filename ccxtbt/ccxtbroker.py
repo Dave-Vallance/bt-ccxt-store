@@ -285,7 +285,7 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
     def get_orders_open(self, safe=False):
         return self.store.fetch_open_orders()
 
-    def private_end_point(self, type, endpoint, params):
+    def private_end_point(self, type, endpoint, params, prefix = ""):
         '''
         Open method to allow calls to be made to any private end point.
         See here: https://github.com/ccxt/ccxt/wiki/Manual#implicit-api-methods
@@ -295,6 +295,8 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
         - Params: Dict: An implicit method takes a dictionary of parameters, sends
           the request to the exchange and returns an exchange-specific JSON
           result from the API as is, unparsed.
+        - Optional prefix to be appended to the front of method_str should your
+          exchange needs it. E.g. v2_private_xxx
 
         To get a list of all available methods with an exchange instance,
         including implicit methods and unified methods you can simply do the
@@ -306,6 +308,9 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
         endpoint_str = endpoint_str.replace('{', '')
         endpoint_str = endpoint_str.replace('}', '')
 
-        method_str = 'private_' + type.lower() + endpoint_str.lower()
+        if prefix != "":
+            method_str = prefix.lower() + '_private_' + type.lower() + endpoint_str.lower()
+        else:
+            method_str = 'private_' + type.lower() + endpoint_str.lower()
 
         return self.store.private_end_point(type=type, endpoint=method_str, params=params)
