@@ -305,6 +305,7 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
         print(dir(ccxt.hitbtc()))
         '''
         endpoint_str = endpoint.replace('/', '_')
+        endpoint_str = endpoint.replace('-', '_')
         endpoint_str = endpoint_str.replace('{', '')
         endpoint_str = endpoint_str.replace('}', '')
 
