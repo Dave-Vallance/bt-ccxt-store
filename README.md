@@ -16,9 +16,9 @@ Check out the example script to see how to setup and run on Kraken.
   Note that some exchanges may send different notification data
 
 - Broker mapping added as I noticed that there differences between the expected
-  order_types and retuned status's from canceling an order
+  order_types and returned status's from canceling an order
 
-- Added a new mappings parameter to the script with defaults.
+- Added a new mapping parameter to the script with defaults.
 
 - Added a new get_wallet_balance method. This will allow manual checking of the balance.
   The method will allow setting parameters. Useful for getting margin balances
@@ -52,7 +52,7 @@ Check out the example script to see how to setup and run on Kraken.
 ```
 
   - Added new private_end_point method to allow using any private non-unified end point.
-    An example for getting a list of postions and then closing them on Bitfinex
+    An example for getting a list of positions and then closing them on Bitfinex
     is below:
 
 ```
@@ -76,8 +76,8 @@ Check out the example script to see how to setup and run on Kraken.
 
 ## CCXTStore
 
-Redesigned the way that the store is intialized, data and brokers are requested.
-The store now uses metaparams and has methods for `getbroker()` and `getdata()`.
+Redesigned the way that the store is initialized, data and brokers are requested.
+The store now uses meta params and has methods for `getbroker()` and `getdata()`.
 A store is initialized in a similar way to other backtrader stores. e.g
 
 ```
