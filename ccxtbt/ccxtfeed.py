@@ -205,40 +205,47 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
         else:
             trades = self.store.fetch_trades(self.p.dataname)
 
-        trade_dict_list = []
-        index = 0
-        for trade in trades:
-            trade_id = trade['id']
+        if len(trades) <= 1:
+            trade_time = datetime.strptime(trade['datetime'], '%Y-%m-%dT%H:%M:%S.%fZ')
+            self._data.append((trade_time, float(trade['price']), float(trade['amount'])))
+        else:
+            trade_dict_list = []
+            index = 0
+            # Since we only need the last 2 trades, just loop through the last 2 trades to speed up the for loop
+            for trade in trades[-2:]:
+                trade_id = trade['id']
 
-            if trade_id > self._last_id:
-                trade_time = datetime.strptime(trade['datetime'], '%Y-%m-%dT%H:%M:%S.%fZ')
-                trade_dict = dict(index=index, trade_time=trade_time, price=float(trade['price']),
-                                  amount=float(trade['amount']))
-                trade_dict_list.append(trade_dict)
-                self._last_id = trade_id
-                index += 1
+                if trade_id > self._last_id:
+                    trade_time = datetime.strptime(trade['datetime'], '%Y-%m-%dT%H:%M:%S.%fZ')
+                    trade_dict = dict(index=index, trade_time=trade_time, price=float(trade['price']),
+                                      amount=float(trade['amount']))
+                    trade_dict_list.append(trade_dict)
+                    self._last_id = trade_id
+                    index += 1
 
-        if len(trade_dict_list) > 0:
-            # The order of self._data should be in reversed order by trade datetime
-            reverse = True
-            selection_key = 'index'
-            trade_dict_list.sort(key = lambda k: k[selection_key], reverse = reverse)   # sorts in place
-            for trade_dict in trade_dict_list:
-                self._data.append((trade_dict['trade_time'], trade_dict['price'], trade_dict['amount']))
+            if len(trade_dict_list) > 0:
+                # The order of self._data should be in reversed order by trade datetime
+                reverse = True
+                selection_key = 'index'
+                trade_dict_list.sort(key = lambda k: k[selection_key], reverse = reverse)   # sorts in place
+                for trade_dict in trade_dict_list:
+                    self._data.append((trade_dict['trade_time'], trade_dict['price'], trade_dict['amount']))
+                    # Break here once we got the first data is sufficient as we only look for the first data
+                    break
 
-        try:
-            trade = self._data.popleft()
-        except IndexError:
-            return None  # no data in the queue
+            try:
+                trade = self._data.popleft()
+            except IndexError:
+                return None  # no data in the queue
 
-        trade_time, price, size = trade
+            trade_time, price, size = trade
 
-        self.lines.datetime[0] = bt.date2num(trade_time)
-        self.lines.open[0] = price
-        self.lines.high[0] = price
-        self.lines.low[0] = price
-        self.lines.close[0] = price
-        self.lines.volume[0] = size
+            self.lines.datetime[0] = bt.date2num(trade_time)
+            self.lines.open[0] = price
+            self.lines.high[0] = price
+            self.lines.low[0] = price
+            self.lines.close[0] = price
+            self.lines.volume[0] = size
 
         return True
 
