@@ -182,7 +182,7 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
     def next(self):
         if self.debug:
             print('Broker next() called')
-        
+
         for o_order in list(self.open_orders):
             oID = o_order.ccxt_order['id']
 
@@ -193,14 +193,14 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
 
             # Get the order
             ccxt_order = self.store.fetch_order(oID, o_order.data.p.dataname)
-            
+
             # Check for new fills
             if 'trades' in ccxt_order and ccxt_order['trades'] is not None:
                 for fill in ccxt_order['trades']:
                     if fill not in o_order.executed_fills:
-                        o_order.execute(fill['datetime'], fill['amount'], fill['price'], 
-                                        0, 0.0, 0.0, 
-                                        0, 0.0, 0.0, 
+                        o_order.execute(fill['datetime'], fill['amount'], fill['price'],
+                                        0, 0.0, 0.0,
+                                        0, 0.0, 0.0,
                                         0.0, 0.0,
                                         0, 0.0)
                         o_order.executed_fills.append(fill['id'])
@@ -285,6 +285,30 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
     def get_orders_open(self, symbol=None, safe=False):
         return self.store.fetch_open_orders(symbol)
 
+    def get_positions(self, symbols=None, params = {}):
+        return self.store.fetch_opened_positions(symbols, params)
+
+    def __common_end_point(self, is_private, type, endpoint, params, prefix):
+        endpoint_str = endpoint.replace('/', '_')
+        endpoint_str = endpoint_str.replace('-', '_')
+        endpoint_str = endpoint_str.replace('{', '')
+        endpoint_str = endpoint_str.replace('}', '')
+
+        private_or_public = "public"
+        if is_private == True:
+            private_or_public = "private"
+
+        if prefix != "":
+            method_str = prefix.lower() + "_" + private_or_public + "_" + type.lower() + endpoint_str.lower()
+        else:
+            method_str = private_or_public + "_" + type.lower() + endpoint_str.lower()
+
+        return self.store.private_end_point(type=type, endpoint=method_str, params=params)
+
+    def public_end_point(self, type, endpoint, params, prefix = ""):
+        is_private = False
+        return self.__common_end_point(is_private, type, endpoint, params, prefix)
+
     def private_end_point(self, type, endpoint, params, prefix = ""):
         '''
         Open method to allow calls to be made to any private end point.
@@ -304,14 +328,5 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
 
         print(dir(ccxt.hitbtc()))
         '''
-        endpoint_str = endpoint.replace('/', '_')
-        endpoint_str = endpoint_str.replace('-', '_')
-        endpoint_str = endpoint_str.replace('{', '')
-        endpoint_str = endpoint_str.replace('}', '')
-
-        if prefix != "":
-            method_str = prefix.lower() + '_private_' + type.lower() + endpoint_str.lower()
-        else:
-            method_str = 'private_' + type.lower() + endpoint_str.lower()
-
-        return self.store.private_end_point(type=type, endpoint=method_str, params=params)
+        is_private = True
+        return self.__common_end_point(is_private, type, endpoint, params, prefix)

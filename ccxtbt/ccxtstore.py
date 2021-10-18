@@ -198,6 +198,10 @@ class CCXTStore(with_metaclass(MetaSingleton, object)):
             return self.exchange.fetchOpenOrders(symbol)
 
     @retry
+    def fetch_opened_positions(self, symbols=None, params={}):
+        return self.exchange.fetch_positions(symbols=symbols, params=params)
+
+    @retry
     def private_end_point(self, type, endpoint, params):
         '''
         Open method to allow calls to be made to any private end point.
