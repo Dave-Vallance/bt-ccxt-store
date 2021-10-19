@@ -310,8 +310,8 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
             self.notify(order)
         return order
 
-    def get_orders_open(self, symbol=None, safe=False):
-        return self.store.fetch_open_orders(symbol)
+    def get_orders_open(self, symbol=None, since=None, limit=None, params={}):
+        return self.store.fetch_open_orders(symbol=symbol, since=since, limit=limit, params=params)
 
     def get_positions(self, symbols=None, params = {}):
         return self.store.fetch_opened_positions(symbols, params)
