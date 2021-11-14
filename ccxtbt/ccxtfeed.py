@@ -134,7 +134,6 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
                     else:
                         self._state = self._ST_LIVE
                         self.put_notification(self.LIVE)
-                        continue
 
     def _fetch_ohlcv(self, fromdate=None):
         """Fetch OHLCV data into self._data queue"""
@@ -160,7 +159,7 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
                 # TESTING
                 since_dt = datetime.utcfromtimestamp(since // 1000) if since is not None else 'NA'
                 print('---- NEW REQUEST ----')
-                print('{} - Requesting: Since TS {} Since date {} granularity {}, limit {}, params'.format(
+                print('{} - Requesting: Since TS:{} Since date:{} granularity:{}, limit:{}, params:{}'.format(
                     datetime.utcnow(), since, since_dt, granularity, limit, self.p.fetch_ohlcv_params))
                 data = sorted(self.store.fetch_ohlcv(self.p.dataname, timeframe=granularity,
                                                      since=since, limit=limit, params=self.p.fetch_ohlcv_params))
@@ -186,10 +185,6 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
 
             prev_tstamp = None
             for ohlcv in data:
-
-                # for ohlcv in sorted(self.store.fetch_ohlcv(self.p.dataname, timeframe=granularity,
-                #                                           since=since, limit=limit, params=self.p.fetch_ohlcv_params)):
-
                 if None in ohlcv:
                     continue
 
@@ -223,8 +218,10 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
             trades = self.store.fetch_trades(self.p.dataname)
 
         if len(trades) <= 1:
-            trade_time = datetime.strptime(trade['datetime'], '%Y-%m-%dT%H:%M:%S.%fZ')
-            self._data.append((trade_time, float(trade['price']), float(trade['amount'])))
+            if len(trades) == 1:
+                trade = trades[0]
+                trade_time = datetime.strptime(trade['datetime'], '%Y-%m-%dT%H:%M:%S.%fZ')
+                self._data.append((trade_time, float(trade['price']), float(trade['amount'])))
         else:
             trade_dict_list = []
             index = 0
