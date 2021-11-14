@@ -126,7 +126,7 @@ class CCXTStore(with_metaclass(MetaSingleton, object)):
         granularity = self._GRANULARITIES.get((timeframe, compression))
         if granularity is None:
             raise ValueError("backtrader CCXT module doesn't support fetching OHLCV "
-                             "data for time frame %s, comression %s" % \
+                             "data for time frame %s, compression %s" % \
                              (bt.TimeFrame.getname(timeframe), compression))
 
         if self.exchange.timeframes and granularity not in self.exchange.timeframes:
@@ -175,6 +175,11 @@ class CCXTStore(with_metaclass(MetaSingleton, object)):
         # returns the order
         return self.exchange.create_order(symbol=symbol, type=order_type, side=side,
                                           amount=amount, price=price, params=params)
+
+    @retry
+    def edit_order(self, order_id, symbol, *args):
+        # returns the order
+        return self.exchange.edit_order(id=order_id, symbol=symbol, *args)
 
     @retry
     def cancel_order(self, order_id, symbol):

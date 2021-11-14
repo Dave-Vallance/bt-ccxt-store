@@ -310,6 +310,9 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
             self.notify(order)
         return order
 
+    def modify_order(self, order_id, symbol, *args):
+        return self.store.edit_order(order_id=order_id, symbol=symbol, *args)
+
     def get_orders_open(self, symbol=None, since=None, limit=None, params={}):
         return self.store.fetch_open_orders(symbol=symbol, since=since, limit=limit, params=params)
 
