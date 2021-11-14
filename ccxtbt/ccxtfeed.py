@@ -86,6 +86,7 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
         self._data = deque()  # data queue for price data
         self._last_id = ''  # last processed trade id for ohlcv
         self._last_ts = 0  # last processed timestamp for ohlcv
+        self._ts_delta = None  # timestamp delta for ohlcv
 
     def start(self, ):
         DataBase.start(self)
@@ -108,7 +109,12 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
                 if self._timeframe == bt.TimeFrame.Ticks:
                     return self._load_ticks()
                 else:
-                    self._fetch_ohlcv()
+                    # INFO: Fix to address slow loading time after enter into LIVE state.
+                    if len(self._data) == 0:
+                        # INFO: Only call _fetch_ohlcv when self._data is fully consumed as it will cause execution
+                        #       inefficiency due to network latency. Furthermore it is extremely inefficiency to fetch
+                        #       an amount of bars but only load one bar at a given time.
+                        self._fetch_ohlcv()
                     ret = self._load_ohlcv()
                     if self.p.debug:
                         print('----     LOAD    ----')
@@ -138,7 +144,10 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
             since = int((fromdate - datetime(1970, 1, 1)).total_seconds() * 1000)
         else:
             if self._last_ts > 0:
-                since = self._last_ts
+                if self._ts_delta is None:
+                    since = self._last_ts
+                else:
+                    since = self._last_ts + self._ts_delta
             else:
                 since = None
 
@@ -175,6 +184,7 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
             if self.p.drop_newest:
                 del data[-1]
 
+            prev_tstamp = None
             for ohlcv in data:
 
                 # for ohlcv in sorted(self.store.fetch_ohlcv(self.p.dataname, timeframe=granularity,
@@ -185,6 +195,10 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
 
                 tstamp = ohlcv[0]
 
+                if prev_tstamp is not None and self._ts_delta is None:
+                    # INFO: Record down the TS delta so that it can be used to increment since TS
+                    self._ts_delta = tstamp - prev_tstamp
+
                 # Prevent from loading incomplete data
                 # if tstamp > (time.time() * 1000):
                 #    continue
@@ -194,6 +208,9 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
                         print('Adding: {}'.format(ohlcv))
                     self._data.append(ohlcv)
                     self._last_ts = tstamp
+
+                if prev_tstamp is None:
+                    prev_tstamp = tstamp
 
             if dlen == len(self._data):
                 break
