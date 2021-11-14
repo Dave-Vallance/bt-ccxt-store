@@ -4,9 +4,18 @@ DEFAULT_DATE_TIME_FORMAT = "%d-%m-%y %H:%M"
 import time
 import backtrader as bt
 import datetime as dt
-from ccxtbt import CCXTStore
+import inspect
 
-DEBUG = True
+from ccxtbt import CCXTStore
+from time import time as timer
+
+# DEBUG = True
+
+def get_time_diff(start):
+    prog_time_diff = timer() - start
+    hours, rem = divmod(prog_time_diff, 3600)
+    minutes, seconds = divmod(rem, 60)
+    return hours, minutes, seconds
 
 
 class CustomStrategy(bt.Strategy):
@@ -30,19 +39,22 @@ class CustomStrategy(bt.Strategy):
         self.log("{} - O: {:.8} C: {:.8}".format(self.status, self.data0.open[0], self.data0.close[0]))
 
     def log(self, txt):
-        if not DEBUG:
-            return
+        # if not DEBUG:
+        #     return
 
         dt = self.data0.datetime.datetime()
         print('[%s] %s' % (dt.strftime(DEFAULT_DATE_TIME_FORMAT), txt))
 
 
 def main():
+    DEBUG = False
     BYBIT_EXCHANGE_ID = 'bybit'
     BYBIT_OHLCV_LIMIT = 200
     symbol_name = "BTC/USD"
     symbol_id = symbol_name.replace("/", "")
-    currency = symbol_id[:-3]
+    currency = symbol_id[:-4]
+    if symbol_id.endswith("USD"):
+        currency = symbol_id[:-3]
 
     cerebro = bt.Cerebro(quicknotify=True)
 
@@ -54,7 +66,7 @@ def main():
         'enableRateLimit': True,
     }
 
-    store = CCXTStore(exchange=BYBIT_EXCHANGE_ID, currency=currency, config=broker_config, retries=5, debug=False,
+    store = CCXTStore(exchange=BYBIT_EXCHANGE_ID, currency=currency, config=broker_config, retries=5, debug=DEBUG,
                       sandbox=True)
 
     broker_mapping = {
@@ -111,7 +123,9 @@ def main():
         fromdate=hist_start_date,
         timeframe=timeframe,
         compression=compression,
-        ohlcv_limit=BYBIT_OHLCV_LIMIT
+        ohlcv_limit=BYBIT_OHLCV_LIMIT,
+        # debug=DEBUG,
+        # historical=True,
     )
 
     cerebro.adddata(data)
@@ -119,8 +133,14 @@ def main():
     cerebro.run()
 
 if __name__ == "__main__":
+    start = timer()
     try:
         main()
     except KeyboardInterrupt:
         time = dt.datetime.utcnow().strftime(DEFAULT_DATE_TIME_FORMAT)
-        print("[{}] finished by user.".format(time))
+        print("{}: Finished by user.".format(time))
+
+    _, minutes, seconds = get_time_diff(start)
+    print("{} Line: {}: Took {}:{:.2f}s".format(inspect.getframeinfo(inspect.currentframe()).function,
+                                                inspect.getframeinfo(inspect.currentframe()).lineno,
+                                                int(minutes), seconds))
