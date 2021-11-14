@@ -7,6 +7,15 @@ vary.
 
 Check out the example script to see how to setup and run on Kraken.
 
+# Installation
+```buildoutcfg
+pip install .
+```
+
+# Development Installation
+```buildoutcfg
+pip install -e .
+```
 
 # Additions / Changes
 
