@@ -147,6 +147,11 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
         while True:
             dlen = len(self._data)
 
+            if self._qcheck > 0.0:
+                if self.p.debug:
+                    print('Respecting _qcheck timeout: {}s'.format(self._qcheck))
+                time.sleep(self._qcheck)
+
             if self.p.debug:
                 # TESTING
                 since_dt = datetime.utcfromtimestamp(since // 1000) if since is not None else 'NA'
