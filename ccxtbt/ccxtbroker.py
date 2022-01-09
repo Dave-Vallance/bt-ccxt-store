@@ -257,7 +257,7 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
         _order = self.store.fetch_order(ret_ord['id'], data.p.dataname)
 
         order = CCXTOrder(owner, data, _order)
-        order.price = ret_ord['price']
+        order.price = price
         self.open_orders.append(order)
 
         self.notify(order)
