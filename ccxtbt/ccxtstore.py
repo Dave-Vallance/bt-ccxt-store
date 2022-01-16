@@ -177,9 +177,9 @@ class CCXTStore(with_metaclass(MetaSingleton, object)):
                                           amount=amount, price=price, params=params)
 
     @retry
-    def edit_order(self, order_id, symbol, *args):
+    def edit_order(self, order_id, symbol, *arg):
         # returns the order
-        return self.exchange.edit_order(id=order_id, symbol=symbol, *args)
+        return self.exchange.edit_order(order_id, symbol, *arg)
 
     @retry
     def cancel_order(self, order_id, symbol):

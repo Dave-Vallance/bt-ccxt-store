@@ -232,7 +232,7 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
                 o_order.cancel()
                 self.notify(o_order)
 
-    def _submit(self, owner, data, exectype, side, amount, price, params):
+    def _submit(self, owner, data, exectype, side, amount, price, simulated, params):
         if amount == 0 or price == 0:
         # do not allow failing orders
             return None
@@ -256,7 +256,8 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
 
         _order = self.store.fetch_order(ret_ord['id'], data.p.dataname)
 
-        order = CCXTOrder(owner, data, _order)
+        # INFO: Exposed simulated so that we could proceed with order without running cerebro
+        order = CCXTOrder(owner, data, _order, simulated=simulated)
         order.price = ret_ord['price']
         self.open_orders.append(order)
 
@@ -266,18 +267,20 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
     def buy(self, owner, data, size, price=None, plimit=None,
             exectype=None, valid=None, tradeid=0, oco=None,
             trailamount=None, trailpercent=None,
+            simulated=False,
             **kwargs):
         del kwargs['parent']
         del kwargs['transmit']
-        return self._submit(owner, data, exectype, 'buy', size, price, kwargs)
+        return self._submit(owner, data, exectype, 'buy', size, price, simulated, kwargs)
 
     def sell(self, owner, data, size, price=None, plimit=None,
              exectype=None, valid=None, tradeid=0, oco=None,
              trailamount=None, trailpercent=None,
+             simulated=False,
              **kwargs):
         del kwargs['parent']
         del kwargs['transmit']
-        return self._submit(owner, data, exectype, 'sell', size, price, kwargs)
+        return self._submit(owner, data, exectype, 'sell', size, price, simulated, kwargs)
 
     def cancel(self, order):
 
@@ -311,7 +314,10 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
         return order
 
     def modify_order(self, order_id, symbol, *args):
-        return self.store.edit_order(order_id=order_id, symbol=symbol, *args)
+        return self.store.edit_order(order_id, symbol, *args)
+
+    def fetch_order(self, order_id, symbol):
+        return self.store.fetch_order(order_id, symbol)
 
     def get_orders_open(self, symbol=None, since=None, limit=None, params={}):
         return self.store.fetch_open_orders(symbol=symbol, since=since, limit=limit, params=params)
