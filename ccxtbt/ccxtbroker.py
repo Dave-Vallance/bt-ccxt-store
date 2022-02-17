@@ -23,6 +23,7 @@ from __future__ import (absolute_import, division, print_function,
 
 import collections
 import json
+import datetime
 
 from backtrader import BrokerBase, OrderBase, Order
 from backtrader.position import Position
@@ -237,24 +238,35 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
         # do not allow failing orders
             return None
         order_type = self.order_types.get(exectype) if exectype else 'market'
-        created = int(data.datetime.datetime(0).timestamp()*1000)
+
+        if data:
+            created = int(data.datetime.datetime(0).timestamp()*1000)
+            symbol_name = data.p.dataname
+        else:
+            # INFO: Use the current UTC datetime
+            utc_dt = datetime.datetime.utcnow()
+            created = int(utc_dt.timestamp()*1000)
+            symbol_name = params['params']['symbol']
+            # INFO: Remove symbol name from params
+            params['params'].pop('symbol', None)
+
         # Extract CCXT specific params if passed to the order
         params = params['params'] if 'params' in params else params
         if not self.use_order_params:
-            ret_ord = self.store.create_order(symbol=data.p.dataname, order_type=order_type, side=side,
+            ret_ord = self.store.create_order(symbol=symbol_name, order_type=order_type, side=side,
                                               amount=amount, price=price, params={})
         else:
             try:
                 # all params are exchange specific: https://github.com/ccxt/ccxt/wiki/Manual#custom-order-params
                 params['created'] = created  # Add timestamp of order creation for backtesting
-                ret_ord = self.store.create_order(symbol=data.p.dataname, order_type=order_type, side=side,
+                ret_ord = self.store.create_order(symbol=symbol_name, order_type=order_type, side=side,
                                                   amount=amount, price=price, params=params)
             except:
                 # save some API calls after failure
                 self.use_order_params = False
                 return None
 
-        _order = self.store.fetch_order(ret_ord['id'], data.p.dataname)
+        _order = self.store.fetch_order(ret_ord['id'], symbol_name)
 
         # INFO: Exposed simulated so that we could proceed with order without running cerebro
         order = CCXTOrder(owner, data, _order, simulated=simulated)
@@ -316,8 +328,8 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
     def modify_order(self, order_id, symbol, *args):
         return self.store.edit_order(order_id, symbol, *args)
 
-    def fetch_order(self, order_id, symbol):
-        return self.store.fetch_order(order_id, symbol)
+    def fetch_order(self, order_id, symbol, params={}):
+        return self.store.fetch_order(order_id, symbol, params)
 
     def get_orders_open(self, symbol=None, since=None, limit=None, params={}):
         return self.store.fetch_open_orders(symbol=symbol, since=since, limit=limit, params=params)

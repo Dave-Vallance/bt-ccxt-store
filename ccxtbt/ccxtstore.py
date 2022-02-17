@@ -198,8 +198,8 @@ class CCXTStore(with_metaclass(MetaSingleton, object)):
         return self.exchange.fetch_ohlcv(symbol, timeframe=timeframe, since=since, limit=limit, params=params)
 
     @retry
-    def fetch_order(self, oid, symbol):
-        return self.exchange.fetch_order(oid, symbol)
+    def fetch_order(self, oid, symbol, params={}):
+        return self.exchange.fetch_order(oid, symbol, params)
 
     @retry
     def fetch_open_orders(self, symbol=None, since=None, limit=None, params={}):
