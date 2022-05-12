@@ -97,6 +97,7 @@ class CCXTStore(with_metaclass(MetaSingleton, object)):
 
     def __init__(self, exchange, currency, config, retries, debug=False, sandbox=False):
         self.exchange = getattr(ccxt, exchange)(config)
+        self.mainnet_exchange = getattr(ccxt, exchange)(config)
         if sandbox:
             self.exchange.set_sandbox_mode(True)
         self.currency = currency
@@ -195,7 +196,8 @@ class CCXTStore(with_metaclass(MetaSingleton, object)):
             since_dt = datetime.utcfromtimestamp(since // 1000) if since is not None else 'NA'
             print('Fetching: {}, timeframe:{}, since TS:{}, since_dt:{}, limit:{}, params:{}'.format(
                 symbol, timeframe, since, since_dt, limit, params))
-        return self.exchange.fetch_ohlcv(symbol, timeframe=timeframe, since=since, limit=limit, params=params)
+        # INFO: Always fetch klines from mainnet instead of testnet
+        return self.mainnet_exchange.fetch_ohlcv(symbol, timeframe=timeframe, since=since, limit=limit, params=params)
 
     @retry
     def fetch_order(self, oid, symbol, params={}):

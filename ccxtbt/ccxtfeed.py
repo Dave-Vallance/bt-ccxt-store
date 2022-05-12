@@ -159,7 +159,7 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
                 # TESTING
                 since_dt = datetime.utcfromtimestamp(since // 1000) if since is not None else 'NA'
                 print('---- NEW REQUEST ----')
-                print('{} - Requesting: Since TS:{} Since date:{} granularity:{}, limit:{}, params:{}'.format(
+                print('{} - Requesting: Since TS:{}, Since date:{}, granularity:{}, limit:{}, params:{}'.format(
                     datetime.utcnow(), since, since_dt, granularity, limit, self.p.fetch_ohlcv_params))
                 data = sorted(self.store.fetch_ohlcv(self.p.dataname, timeframe=granularity,
                                                      since=since, limit=limit, params=self.p.fetch_ohlcv_params))
