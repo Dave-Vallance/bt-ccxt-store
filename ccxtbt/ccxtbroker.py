@@ -183,7 +183,12 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
 
     def getposition(self, data, clone=True):
         # return self.o.getposition(data._dataname, clone=clone)
-        pos = self.positions[data._dataname]
+        try:
+            # Initially try using the hash value of dataname
+            pos = self.positions[data._dataname]
+        except TypeError:
+            # Else use the datafeed name assigned by user
+            pos = self.positions[data._name]
         if clone:
             pos = pos.clone()
         return pos
@@ -241,32 +246,32 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
 
         if data:
             created = int(data.datetime.datetime(0).timestamp()*1000)
-            symbol_name = data.p.dataname
+            symbol_id = params['params']['symbol']
         else:
             # INFO: Use the current UTC datetime
             utc_dt = datetime.datetime.utcnow()
             created = int(utc_dt.timestamp()*1000)
-            symbol_name = params['params']['symbol']
+            symbol_id = params['params']['symbol']
             # INFO: Remove symbol name from params
             params['params'].pop('symbol', None)
 
         # Extract CCXT specific params if passed to the order
         params = params['params'] if 'params' in params else params
         if not self.use_order_params:
-            ret_ord = self.store.create_order(symbol=symbol_name, order_type=order_type, side=side,
+            ret_ord = self.store.create_order(symbol=symbol_id, order_type=order_type, side=side,
                                               amount=amount, price=price, params={})
         else:
             try:
                 # all params are exchange specific: https://github.com/ccxt/ccxt/wiki/Manual#custom-order-params
                 params['created'] = created  # Add timestamp of order creation for backtesting
-                ret_ord = self.store.create_order(symbol=symbol_name, order_type=order_type, side=side,
+                ret_ord = self.store.create_order(symbol=symbol_id, order_type=order_type, side=side,
                                                   amount=amount, price=price, params=params)
             except:
                 # save some API calls after failure
                 self.use_order_params = False
                 return None
 
-        _order = self.store.fetch_order(ret_ord['id'], symbol_name)
+        _order = self.store.fetch_order(ret_ord['id'], symbol_id)
 
         # INFO: Exposed simulated so that we could proceed with order without running cerebro
         order = CCXTOrder(owner, data, _order, simulated=simulated)
