@@ -21,12 +21,20 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
+import copy
+import inspect
+import json
 import time
+import traceback
 from datetime import datetime
 from functools import wraps
+from pprint import pprint
 
+import backtrader
 import backtrader as bt
 import ccxt
+from pybit import usdt_perpetual
+
 from backtrader.metabase import MetaParams
 from backtrader.utils.py3 import with_metaclass
 from ccxt.base.errors import NetworkError, ExchangeError
@@ -100,6 +108,27 @@ class CCXTStore(with_metaclass(MetaSingleton, object)):
         self.mainnet_exchange = getattr(ccxt, exchange)(config)
         if sandbox:
             self.exchange.set_sandbox_mode(True)
+
+        # INFO: Invoke websocket if available
+        self.is_ws_available = False
+        self.ws_usdt_perpetual = None
+        if exchange == 'bybit':
+            self.is_ws_available = True
+            # Connect with authentication
+            self.ws_usdt_perpetual = usdt_perpetual.WebSocket(
+                test=sandbox,
+                api_key=config['apiKey'],
+                api_secret=config['secret'],
+                # to pass a custom domain in case of connectivity problems, you can use:
+                domain="bytick"  # the default is "bybit"
+            )
+            self.ws_usdt_perpetual.order_stream(self.handle_active_order)
+            self.ws_usdt_perpetual.stop_order_stream(self.handle_conditional_order)
+            self.ws_usdt_perpetual.position_stream(self.handle_positions)
+        self.ws_positions = []
+        self.ws_active_orders = []
+        self.ws_conditional_orders = []
+
         self.currency = currency
         self.retries = retries
         self.debug = debug
@@ -136,6 +165,117 @@ class CCXTStore(with_metaclass(MetaSingleton, object)):
 
         return granularity
 
+    def handle_positions(self, message):
+        try:
+            # print("{} Line: {}: message:".format(
+            #     inspect.getframeinfo(inspect.currentframe()).function,
+            #     inspect.getframeinfo(inspect.currentframe()).lineno,
+            # ))
+            # pprint(message)
+            assert type(message['data']) == list
+            responses = self.exchange.safe_value(message, 'data')
+            for i, position in enumerate(responses):
+                # print("{} Line: {}: position:".format(
+                #     inspect.getframeinfo(inspect.currentframe()).function,
+                #     inspect.getframeinfo(inspect.currentframe()).lineno,
+                # ))
+                # pprint(position)
+                if position not in self.ws_positions:
+                    self.ws_positions.append(position)
+                self.ws_positions[i] = position
+
+            # Sort dictionary list by key
+            reverse = False
+            sort_by_key = 'side'
+            self.ws_positions = sorted(self.ws_positions,
+                                       key=lambda k: k[sort_by_key],
+                                       reverse=reverse)
+        except Exception:
+            traceback.print_exc()
+
+    def handle_active_order(self, message):
+        try:
+            # print("{} Line: {}: message:".format(
+            #     inspect.getframeinfo(inspect.currentframe()).function,
+            #     inspect.getframeinfo(inspect.currentframe()).lineno,
+            # ))
+            # pprint(message)
+            responses = message['data']
+            assert type(responses) == list
+            active_orders_to_be_added = []
+            for order in responses:
+                market = self.exchange.market(order['symbol'])
+                result = self.exchange.safe_value(message, 'data')
+                active_order = self.exchange.parse_order(result[0], market)
+
+                # INFO: Strip away "/" and ":USDT"
+                active_order['symbol'] = active_order['symbol'].replace("/", "")
+                active_order['symbol'] = active_order['symbol'].replace(":USDT", "")
+
+                # print("{} Line: {}: DEBUG: active_order:".format(
+                #     inspect.getframeinfo(inspect.currentframe()).function,
+                #     inspect.getframeinfo(inspect.currentframe()).lineno,
+                # ))
+                # pprint(active_order)
+
+                # print("{} Line: {}: DEBUG: Added active_order ID: {}".format(
+                #     inspect.getframeinfo(inspect.currentframe()).function,
+                #     inspect.getframeinfo(inspect.currentframe()).lineno,
+                #     active_order['id'],
+                # ))
+                active_orders_to_be_added.append(active_order)
+
+            active_order_ids_to_be_added = [active_order['id'] for active_order in active_orders_to_be_added]
+
+            # INFO: Look for existing order in the list
+            ws_active_orders_to_be_removed = []
+            for ws_active_order in self.ws_active_orders:
+                if ws_active_order['id'] in active_order_ids_to_be_added:
+                    ws_active_orders_to_be_removed.append(ws_active_order)
+
+            # INFO: Remove the existing ws active order
+            for ws_active_order in ws_active_orders_to_be_removed:
+                self.ws_active_orders.remove(ws_active_order)
+
+            # INFO: Add the latest active orders
+            for active_order in active_orders_to_be_added:
+                self.ws_active_orders.append(active_order)
+        except Exception:
+            traceback.print_exc()
+
+    def handle_conditional_order(self, message):
+        try:
+            # print("{} Line: {}: message:".format(
+            #     inspect.getframeinfo(inspect.currentframe()).function,
+            #     inspect.getframeinfo(inspect.currentframe()).lineno,
+            # ))
+            # pprint(message)
+            responses = message['data']
+            assert type(responses) == list
+            for order in responses:
+                market = self.exchange.market(order['symbol'])
+                result = self.exchange.safe_value(message, 'data')
+                conditional_order = self.exchange.parse_order(result[0], market)
+
+                # INFO: Strip away "/" and ":USDT"
+                conditional_order['symbol'] = conditional_order['symbol'].replace("/", "")
+                conditional_order['symbol'] = conditional_order['symbol'].replace(":USDT", "")
+
+                # print("{} Line: {}: DEBUG: conditional_order:".format(
+                #     inspect.getframeinfo(inspect.currentframe()).function,
+                #     inspect.getframeinfo(inspect.currentframe()).lineno,
+                # ))
+                # pprint(conditional_order)
+
+                # print("{} Line: {}: DEBUG: Added conditional_order ID: {}".format(
+                #     inspect.getframeinfo(inspect.currentframe()).function,
+                #     inspect.getframeinfo(inspect.currentframe()).lineno,
+                #     conditional_order['id'],
+                # ))
+                self.ws_conditional_orders.append(conditional_order)
+        except Exception:
+            traceback.print_exc()
+
     def retry(method):
         @wraps(method)
         def retry_method(self, *args, **kwargs):
@@ -166,10 +306,8 @@ class CCXTStore(with_metaclass(MetaSingleton, object)):
         self._cash = cash if cash else 0
         self._value = value if value else 0
 
-    @retry
     def get_position(self):
         return self._value
-        # return self.getvalue(currency)
 
     @retry
     def create_order(self, symbol, order_type, side, amount, price, params):
@@ -191,6 +329,14 @@ class CCXTStore(with_metaclass(MetaSingleton, object)):
         return self.exchange.fetch_trades(symbol)
 
     @retry
+    def parse_timeframe(self, timeframe):
+        return self.exchange.parse_timeframe(timeframe)
+
+    @retry
+    def filter_by_since_limit(self, array, since=None, limit=None, key='timestamp', tail=False):
+        return self.exchange.filter_by_since_limit(array, since, limit, key, tail)
+
+    @retry
     def fetch_ohlcv(self, symbol, timeframe, since, limit, params={}):
         if self.debug:
             since_dt = datetime.utcfromtimestamp(since // 1000) if since is not None else 'NA'
@@ -200,19 +346,113 @@ class CCXTStore(with_metaclass(MetaSingleton, object)):
         return self.mainnet_exchange.fetch_ohlcv(symbol, timeframe=timeframe, since=since, limit=limit, params=params)
 
     @retry
+    def fetch_order_book(self, symbol, limit=None, params={}):
+        # INFO: Always fetch order book from mainnet instead of testnet
+        return self.mainnet_exchange.fetch_order_book(symbol, limit=limit, params=params)
+
+    @retry
+    def _fetch_order_from_exchange(self, oid, symbol, params={}):
+        order = self.exchange.fetch_order(oid, symbol, params)
+        return order
+
     def fetch_order(self, oid, symbol, params={}):
-        return self.exchange.fetch_order(oid, symbol, params)
+        # print("{} Line: {}: is_ws_available: {}".format(
+        #     inspect.getframeinfo(inspect.currentframe()).function,
+        #     inspect.getframeinfo(inspect.currentframe()).lineno,
+        #     self.is_ws_available,
+        # ))
 
-    @retry
-    def fetch_open_orders(self, symbol=None, since=None, limit=None, params={}):
-        if symbol is None:
-            return self.exchange.fetchOpenOrders(since=since, limit=limit, params=params)
+        if self.is_ws_available == True:
+            found_ws_order = False
+            # If we are looking for Active Order
+            if oid is not None:
+                # print("{} Line: {}: Searching for active_order ID: {}".format(
+                #     inspect.getframeinfo(inspect.currentframe()).function,
+                #     inspect.getframeinfo(inspect.currentframe()).lineno,
+                #     oid,
+                # ))
+
+                for active_order in self.ws_active_orders:
+                    # print("{} Line: {}: Comparing active_order ID: {}".format(
+                    #     inspect.getframeinfo(inspect.currentframe()).function,
+                    #     inspect.getframeinfo(inspect.currentframe()).lineno,
+                    #     active_order['id'],
+                    # ))
+
+                    if oid == active_order['id']:
+                        # Extract the order from the websocket
+                        order = active_order
+                        # self.ws_active_orders.remove(active_order)
+                        found_ws_order = True
+                        break
+            # Else if we are looking for Conditional Order
+            else:
+                conditional_oid = params['stop_order_id']
+                for conditional_order in self.ws_conditional_orders:
+                    if conditional_oid == conditional_order['id']:
+                        # Extract the order from the websocket
+                        order = conditional_order
+                        # self.ws_conditional_orders.remove(conditional_order)
+                        found_ws_order = True
+                        break
+
+            # print("")
+            # if oid is not None:
+            #     print("{} Line: {}: INFO: found_ws_order: {} for active_order: {}".format(
+            #         inspect.getframeinfo(inspect.currentframe()).function,
+            #         inspect.getframeinfo(inspect.currentframe()).lineno,
+            #         found_ws_order, oid,
+            #     ))
+            # else:
+            #     conditional_oid = params['stop_order_id']
+            #     print("{} Line: {}: INFO: found_ws_order: {} for conditional_order: {}".format(
+            #         inspect.getframeinfo(inspect.currentframe()).function,
+            #         inspect.getframeinfo(inspect.currentframe()).lineno,
+            #         found_ws_order, conditional_oid,
+            #     ))
+
+            if found_ws_order == False:
+                # Exercise the longer time route
+                order = self._fetch_order_from_exchange(oid, symbol, params)
         else:
-            return self.exchange.fetchOpenOrders(symbol=symbol, since=since, limit=limit, params=params)
+            order = self._fetch_order_from_exchange(oid, symbol, params)
+        return order
 
     @retry
-    def fetch_opened_positions(self, symbols=None, params={}):
+    def fetch_orders(self, symbol=None, since=None, limit=None, params={}):
+        if symbol is None:
+            return self.exchange.fetch_orders(since=since, limit=limit, params=params)
+        else:
+            return self.exchange.fetch_orders(symbol=symbol, since=since, limit=limit, params=params)
+
+    @retry
+    def fetch_opened_orders(self, symbol=None, since=None, limit=None, params={}):
+        if symbol is None:
+            return self.exchange.fetch_open_orders(since=since, limit=limit, params=params)
+        else:
+            return self.exchange.fetch_open_orders(symbol=symbol, since=since, limit=limit, params=params)
+
+    @retry
+    def fetch_closed_orders(self, symbol=None, since=None, limit=None, params={}):
+        if symbol is None:
+            return self.exchange.fetch_closed_orders(since=since, limit=limit, params=params)
+        else:
+            return self.exchange.fetch_closed_orders(symbol=symbol, since=since, limit=limit, params=params)
+
+    @retry
+    def _fetch_opened_positions_from_exchange(self, symbols=None, params={}):
         return self.exchange.fetch_positions(symbols=symbols, params=params)
+
+    def fetch_opened_positions(self, symbols=None, params={}):
+        if self.is_ws_available == True:
+            if len(self.ws_positions) > 0:
+                ret_positions = self.ws_positions
+            else:
+                # Exercise the longer time route
+                ret_positions = self._fetch_opened_positions_from_exchange(symbols, params)
+        else:
+            ret_positions = self._fetch_opened_positions_from_exchange(symbols, params)
+        return ret_positions
 
     @retry
     def private_end_point(self, type, endpoint, params):

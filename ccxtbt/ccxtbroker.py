@@ -182,16 +182,40 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
         self.notifs.put(order)
 
     def getposition(self, data, clone=True):
-        # return self.o.getposition(data._dataname, clone=clone)
-        try:
-            # Initially try using the hash value of dataname
-            pos = self.positions[data._dataname]
-        except TypeError:
-            # Else use the datafeed name assigned by user
-            pos = self.positions[data._name]
-        if clone:
-            pos = pos.clone()
-        return pos
+        ret_value = Position(size=0.0, price=0.0)
+        for pos_data, pos in self.positions.items():
+            if data._name == pos_data:
+                if clone:
+                    ret_value = pos.clone()
+                else:
+                    ret_value = pos
+                break
+        return ret_value
+
+    def get_pnl(self, datas=None):
+        pnl_comm = 0.0
+        initial_margin_delta = 0.0
+
+        for data in datas or self.positions:
+            comminfo = self.getcommissioninfo(data)
+            position = self.positions[data]
+
+            if comminfo is not None:
+                if position.size != 0.0:
+                    per_data_pnl = comminfo.profitandloss(position.size, position.price, data.close[0])
+                    entry_comm = comminfo.getcommission(position.size, position.price)
+                    exit_comm = comminfo.getcommission(position.size, data.close[0])
+                    pnl_comm += per_data_pnl - entry_comm - exit_comm
+                    min_price = min(position.price, data.close[0])
+                    max_price = max(position.price, data.close[0])
+                    min_initial_margin = comminfo.get_initial_margin(position.size, min_price)
+                    max_initial_margin = comminfo.get_initial_margin(position.size, max_price)
+                    # INFO: This variable is created to normalized initial margin for both long and short position
+                    #       so that pnl_in_percentage is somewhat similar between long and short position
+                    initial_margin_delta += max_initial_margin - min_initial_margin
+
+        pnl_in_percentage = pnl_comm / (initial_margin_delta or 1.0)
+        return pnl_comm, pnl_in_percentage
 
     def next(self):
         if self.debug:
@@ -275,7 +299,9 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
 
         # INFO: Exposed simulated so that we could proceed with order without running cerebro
         order = CCXTOrder(owner, data, _order, simulated=simulated)
-        order.price = ret_ord['price']
+
+        # INFO: Retrieve order.price from _order['price'] is proven more reliable than ret_ord['price']
+        order.price = _order['price']
         self.open_orders.append(order)
 
         self.notify(order)
@@ -336,10 +362,16 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
     def fetch_order(self, order_id, symbol, params={}):
         return self.store.fetch_order(order_id, symbol, params)
 
-    def get_orders_open(self, symbol=None, since=None, limit=None, params={}):
-        return self.store.fetch_open_orders(symbol=symbol, since=since, limit=limit, params=params)
+    def fetch_orders(self, symbol=None, since=None, limit=None, params={}):
+        return self.store.fetch_orders(symbol=symbol, since=since, limit=limit, params=params)
 
-    def get_positions(self, symbols=None, params = {}):
+    def fetch_opened_orders(self, symbol=None, since=None, limit=None, params={}):
+        return self.store.fetch_opened_orders(symbol=symbol, since=since, limit=limit, params=params)
+
+    def fetch_closed_orders(self, symbol=None, since=None, limit=None, params={}):
+        return self.store.fetch_closed_orders(symbol=symbol, since=since, limit=limit, params=params)
+
+    def get_positions(self, symbols=None, params={}):
         return self.store.fetch_opened_positions(symbols, params)
 
     def __common_end_point(self, is_private, type, endpoint, params, prefix):

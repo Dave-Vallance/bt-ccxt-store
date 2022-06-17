@@ -22,15 +22,21 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
+import dateutil.parser
+import inspect
+import pandas as pd
 import time
+
 from collections import deque
 from datetime import datetime
+from pprint import pprint
 
 import backtrader as bt
 from backtrader.feed import DataBase
 from backtrader.utils.py3 import with_metaclass
 
 from .ccxtstore import CCXTStore
+from .utils import print_timestamp_checkpoint, CCXT_DATA_COLUMNS, get_ha_bars
 
 
 class MetaCCXTFeed(DataBase.__class__):
@@ -70,6 +76,9 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
         ('backfill_start', False),  # do backfilling at the start
         ('fetch_ohlcv_params', {}),
         ('ohlcv_limit', 20),
+        ('convert_to_heikin_ashi', False),    # True if the klines are converted into Heiken Ashi candlesticks
+        ('symbol_tick_size', None),
+        ('price_digits', None),
         ('drop_newest', False),
         ('debug', False)
     )
@@ -84,9 +93,13 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
         # self.store = CCXTStore(exchange, config, retries)
         self.store = self._store(**kwargs)
         self._data = deque()  # data queue for price data
-        self._last_id = ''  # last processed trade id for ohlcv
         self._last_ts = 0  # last processed timestamp for ohlcv
         self._ts_delta = None  # timestamp delta for ohlcv
+
+        # Legality Check
+        if self.p.convert_to_heikin_ashi:
+            assert self.p.symbol_tick_size is not None
+            assert self.p.price_digits is not None
 
     def start(self, ):
         DataBase.start(self)
@@ -107,7 +120,8 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
         while True:
             if self._state == self._ST_LIVE:
                 if self._timeframe == bt.TimeFrame.Ticks:
-                    return self._load_ticks()
+                    ret_value = self._load_ticks()
+                    return ret_value
                 else:
                     # INFO: Fix to address slow loading time after enter into LIVE state.
                     if len(self._data) == 0:
@@ -118,12 +132,23 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
                     ret = self._load_ohlcv()
                     if self.p.debug:
                         print('----     LOAD    ----')
-                        print('{} Load OHLCV Returning: {}'.format(datetime.utcnow(), ret))
+                        print('{} Line: {}: {} Load OHLCV Returning: {}'.format(
+                            inspect.getframeinfo(inspect.currentframe()).function,
+                            inspect.getframeinfo(inspect.currentframe()).lineno,
+                            datetime.utcnow(), ret
+                        ))
                     return ret
 
             elif self._state == self._ST_HISTORBACK:
                 ret = self._load_ohlcv()
                 if ret:
+                    if self.p.debug:
+                        print('----     LOAD    ----')
+                        print('{} Line: {}: {} Load OHLCV Returning: {}'.format(
+                            inspect.getframeinfo(inspect.currentframe()).function,
+                            inspect.getframeinfo(inspect.currentframe()).lineno,
+                            datetime.utcnow(), ret
+                        ))
                     return ret
                 else:
                     # End of historical data
@@ -135,7 +160,20 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
                         self._state = self._ST_LIVE
                         self.put_notification(self.LIVE)
 
-    def _fetch_ohlcv(self, fromdate=None):
+    def retry_fetch_ohlcv(self, symbol_id, timeframe, fetch_since, limit, max_retries):
+        for num_retries in range(max_retries):
+            try:
+                ohlcv = self.store.fetch_ohlcv(
+                    symbol=symbol_id,
+                    timeframe=timeframe,
+                    since=fetch_since,
+                    limit=limit)
+                return ohlcv
+            except Exception:
+                if num_retries == max_retries - 1:
+                    raise ValueError('Failed to fetch', timeframe, symbol_id, 'klines in', max_retries, 'attempts')
+
+    def _fetch_ohlcv(self, fromdate=None, todate=None, max_retries=5):
         """Fetch OHLCV data into self._data queue"""
         granularity = self.store.get_granularity(self._timeframe, self._compression)
 
@@ -148,118 +186,98 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
                 else:
                     since = self._last_ts + self._ts_delta
             else:
-                since = None
+                raise ValueError("Unable to determine the since value!!!")
+
+        if todate:
+            until = int((todate - datetime(1970, 1, 1)).total_seconds() * 1000)
+        else:
+            until = int((datetime.utcnow() - datetime(1970, 1, 1)).total_seconds() * 1000)
 
         limit = self.p.ohlcv_limit
 
-        while True:
-            dlen = len(self._data)
-
-            if self.p.debug:
-                # TESTING
-                since_dt = datetime.utcfromtimestamp(since // 1000) if since is not None else 'NA'
-                print('---- NEW REQUEST ----')
-                print('{} - Requesting: Since TS:{}, Since date:{}, granularity:{}, limit:{}, params:{}'.format(
-                    datetime.utcnow(), since, since_dt, granularity, limit, self.p.fetch_ohlcv_params))
-                data = sorted(self.store.fetch_ohlcv(self.p.dataname, timeframe=granularity,
-                                                     since=since, limit=limit, params=self.p.fetch_ohlcv_params))
-                try:
-                    for i, ohlcv in enumerate(data):
-                        tstamp, open_, high, low, close, volume = ohlcv
-                        print('{} - Data {}: {} - TS {} Time {}'.format(datetime.utcnow(), i,
-                                                                        datetime.utcfromtimestamp(tstamp // 1000),
-                                                                        tstamp, (time.time() * 1000)))
-                        # ------------------------------------------------------------------
-                except IndexError:
-                    print('Index Error: Data = {}'.format(data))
-                print('---- REQUEST END ----')
-            else:
-
-                data = sorted(self.store.fetch_ohlcv(self.p.dataname, timeframe=granularity,
-                                                     since=since, limit=limit, params=self.p.fetch_ohlcv_params))
-
-            # Check to see if dropping the latest candle will help with
-            # exchanges which return partial data
-            if self.p.drop_newest:
-                del data[-1]
-
-            prev_tstamp = None
-            for ohlcv in data:
-                if None in ohlcv:
-                    continue
-
-                tstamp = ohlcv[0]
-
-                if prev_tstamp is not None and self._ts_delta is None:
-                    # INFO: Record down the TS delta so that it can be used to increment since TS
-                    self._ts_delta = tstamp - prev_tstamp
-
-                # Prevent from loading incomplete data
-                # if tstamp > (time.time() * 1000):
-                #    continue
-
-                if tstamp > self._last_ts:
-                    if self.p.debug:
-                        print('Adding: {}'.format(ohlcv))
-                    self._data.append(ohlcv)
-                    self._last_ts = tstamp
-
-                if prev_tstamp is None:
-                    prev_tstamp = tstamp
-
-            if dlen == len(self._data):
+        timeframe_duration_in_seconds = self.store.parse_timeframe(granularity)
+        timeframe_duration_in_ms = timeframe_duration_in_seconds * 1000
+        time_delta = limit * timeframe_duration_in_ms
+        all_ohlcv = []
+        fetch_since = since
+        while fetch_since < until:
+            ohlcv = self.retry_fetch_ohlcv(self.p.dataname, granularity, fetch_since, limit, max_retries)
+            if len(ohlcv) == 0:
                 break
+            fetch_since = (ohlcv[-1][0] + 1) if len(ohlcv) else (fetch_since + time_delta)
+            all_ohlcv = all_ohlcv + ohlcv
+
+        ohlcv_list = self.store.filter_by_since_limit(all_ohlcv, since, limit=None, key=0)
+        # Filter off excessive data should there is any
+        ohlcv_list = [entry for i, entry in enumerate(ohlcv_list) if ohlcv_list[i][0] < until]
+
+        # Check to see if dropping the latest candle will help with
+        # exchanges which return partial data
+        if self.p.drop_newest:
+            del ohlcv_list[-1]
+
+        # print("{} Line: {}: {}: {}: BEFORE: ohlcv_list[-1]: ".format(
+        #     inspect.getframeinfo(inspect.currentframe()).function,
+        #     inspect.getframeinfo(inspect.currentframe()).lineno,
+        #     self.p.dataname,
+        #     self._name,
+        # ))
+        # pprint(ohlcv_list[-1])
+
+        if self.p.convert_to_heikin_ashi:
+            if len(ohlcv_list) > 0:
+                df = pd.DataFrame(ohlcv_list)
+
+                # INFO: Configure the columns to be CCXT
+                df.columns = CCXT_DATA_COLUMNS[:-1]
+
+                df_ha = get_ha_bars(df, self.p.price_digits, self.p.symbol_tick_size)
+
+                ohlcv_list = df_ha.values.tolist()
+                # print("{} Line: {}: {}: {}: AFTER: ohlcv_list[-1]: ".format(
+                #     inspect.getframeinfo(inspect.currentframe()).function,
+                #     inspect.getframeinfo(inspect.currentframe()).lineno,
+                #     self.p.dataname,
+                #     self._name,
+                # ))
+                # pprint(ohlcv_list[-1])
+
+        prev_tstamp = None
+        for ohlcv in ohlcv_list:
+            tstamp = ohlcv[0]
+
+            if prev_tstamp is not None and self._ts_delta is None:
+                # INFO: Record down the TS delta so that it can be used to increment since TS
+                self._ts_delta = tstamp - prev_tstamp
+
+            if tstamp > self._last_ts:
+                if self.p.debug:
+                    print('Adding: {}'.format(ohlcv))
+                self._data.append(ohlcv)
+                self._last_ts = tstamp
+
+            if prev_tstamp is None:
+                prev_tstamp = tstamp
 
     def _load_ticks(self):
-        if self._last_id is None:
-            # first time get the latest trade only
-            trades = [self.store.fetch_trades(self.p.dataname)[-1]]
-        else:
-            trades = self.store.fetch_trades(self.p.dataname)
+        # start = timer()
 
-        if len(trades) <= 1:
-            if len(trades) == 1:
-                trade = trades[0]
-                trade_time = datetime.strptime(trade['datetime'], '%Y-%m-%dT%H:%M:%S.%fZ')
-                self._data.append((trade_time, float(trade['price']), float(trade['amount'])))
-        else:
-            trade_dict_list = []
-            index = 0
-            # Since we only need the last 2 trades, just loop through the last 2 trades to speed up the for loop
-            for trade in trades[-2:]:
-                trade_id = trade['id']
+        order_book = self.store.fetch_order_book(symbol=self.p.dataname)
+        # nearest_ask = order_book['asks'][0][0]
+        nearest_bid = order_book['bids'][0][0]
+        nearest_bid_volume = order_book['bids'][0][1]
 
-                if trade_id > self._last_id:
-                    trade_time = datetime.strptime(trade['datetime'], '%Y-%m-%dT%H:%M:%S.%fZ')
-                    trade_dict = dict(index=index, trade_time=trade_time, price=float(trade['price']),
-                                      amount=float(trade['amount']))
-                    trade_dict_list.append(trade_dict)
-                    self._last_id = trade_id
-                    index += 1
+        # Convert isoformat to datetime
+        order_book_datetime = dateutil.parser.isoparse(order_book['datetime'])
 
-            if len(trade_dict_list) > 0:
-                # The order of self._data should be in reversed order by trade datetime
-                reverse = True
-                selection_key = 'index'
-                trade_dict_list.sort(key = lambda k: k[selection_key], reverse = reverse)   # sorts in place
-                for trade_dict in trade_dict_list:
-                    self._data.append((trade_dict['trade_time'], trade_dict['price'], trade_dict['amount']))
-                    # Break here once we got the first data is sufficient as we only look for the first data
-                    break
+        self.lines.datetime[0] = bt.date2num(order_book_datetime)
+        self.lines.open[0] = nearest_bid
+        self.lines.high[0] = nearest_bid
+        self.lines.low[0] = nearest_bid
+        self.lines.close[0] = nearest_bid
 
-            try:
-                trade = self._data.popleft()
-            except IndexError:
-                return None  # no data in the queue
-
-            trade_time, price, size = trade
-
-            self.lines.datetime[0] = bt.date2num(trade_time)
-            self.lines.open[0] = price
-            self.lines.high[0] = price
-            self.lines.low[0] = price
-            self.lines.close[0] = price
-            self.lines.volume[0] = size
+        # INFO: Volume below is not an actual value provided by most exchange
+        self.lines.volume[0] = nearest_bid_volume
 
         return True
 
