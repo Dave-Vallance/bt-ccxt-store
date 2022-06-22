@@ -22,14 +22,17 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
 import collections
+import inspect
 import json
 import datetime
 
 from backtrader import BrokerBase, OrderBase, Order
 from backtrader.position import Position
 from backtrader.utils.py3 import queue, with_metaclass
+from time import time as timer
 
 from .ccxtstore import CCXTStore
+from .utils import print_timestamp_checkpoint
 
 
 class CCXTOrder(OrderBase):
@@ -160,13 +163,13 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
             value = 0
         return cash, value
 
-    def getcash(self):
-        self.store.get_balance()
+    def getcash(self, force=False):
+        if force == True:
+            self.store.get_balance()
         self.cash = self.store._cash
         return self.cash
 
     def getvalue(self, datas=None):
-        self.store.get_balance()
         self.value = self.store._value
         return self.value
 
