@@ -450,6 +450,9 @@ class CCXTStore(with_metaclass(MetaSingleton, object)):
             else:
                 # Exercise the longer time route
                 ret_positions = self._fetch_opened_positions_from_exchange(symbols, params)
+
+                # Cache the position as if websocket positions. This will prevent us to hit the exchange rate limit.
+                self.ws_positions = ret_positions
         else:
             ret_positions = self._fetch_opened_positions_from_exchange(symbols, params)
         return ret_positions
