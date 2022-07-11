@@ -195,27 +195,47 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
 
     def get_pnl(self, datas=None):
         pnl_comm = 0.0
-        initial_margin_delta = 0.0
+        initial_margin = 0.0
+
+        tick_data = None
+        for data in datas or self.positions:
+            if "Ticks" in data._name:
+                tick_data = data
 
         for data in datas or self.positions:
             comminfo = self.getcommissioninfo(data)
-            position = self.positions[data]
+            # WARNING: For backtest, data is used
+            # WARNING: For live, data._name is used
+            position = self.positions[data._name]
+
+            if tick_data is None:
+                close_price = data.close[0]
+            else:
+                close_price = tick_data.close[0]
 
             if comminfo is not None:
                 if position.size != 0.0:
-                    per_data_pnl = comminfo.profitandloss(position.size, position.price, data.close[0])
+                    per_data_pnl = comminfo.profitandloss(position.size, position.price, close_price)
                     entry_comm = comminfo.getcommission(position.size, position.price)
-                    exit_comm = comminfo.getcommission(position.size, data.close[0])
+                    exit_comm = comminfo.getcommission(position.size, close_price)
                     pnl_comm += per_data_pnl - entry_comm - exit_comm
-                    min_price = min(position.price, data.close[0])
-                    max_price = max(position.price, data.close[0])
-                    min_initial_margin = comminfo.get_initial_margin(position.size, min_price)
-                    max_initial_margin = comminfo.get_initial_margin(position.size, max_price)
-                    # INFO: This variable is created to normalized initial margin for both long and short position
-                    #       so that pnl_in_percentage is somewhat similar between long and short position
-                    initial_margin_delta += max_initial_margin - min_initial_margin
 
-        pnl_in_percentage = pnl_comm / (initial_margin_delta or 1.0)
+                    force = False
+                    if comminfo.p.mult is None:
+                        force = True
+
+                    # For Short
+                    if position.size < 0.0:
+                        max_price = max(position.price, close_price)
+                        max_initial_margin = comminfo.get_initial_margin(position.size, max_price, force)
+                        initial_margin += max_initial_margin
+                    # For Long
+                    elif position.size > 0.0:
+                        min_price = min(position.price, close_price)
+                        min_initial_margin = comminfo.get_initial_margin(position.size, min_price, force)
+                        initial_margin += min_initial_margin
+
+        pnl_in_percentage = pnl_comm / (initial_margin or 1.0)
         return pnl_comm, pnl_in_percentage
 
     def next(self):
@@ -295,6 +315,9 @@ class CCXTBroker(with_metaclass(MetaCCXTBroker, BrokerBase)):
                 # save some API calls after failure
                 self.use_order_params = False
                 return None
+
+        if ret_ord is None:
+            return None
 
         _order = self.store.fetch_order(ret_ord['id'], symbol_id)
 
