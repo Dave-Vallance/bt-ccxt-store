@@ -194,6 +194,7 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
                         print('Adding: {}'.format(ohlcv))
                     self._data.append(ohlcv)
                     self._last_ts = tstamp
+                    since = tstamp + 1000
 
             if dlen == len(self._data):
                 break
@@ -249,7 +250,7 @@ class CCXTFeed(with_metaclass(MetaCCXTFeed, DataBase)):
         return True
 
     def haslivedata(self):
-        return self._state == self._ST_LIVE and self._data
+        return bool(self._state == self._ST_LIVE and self._data)
 
     def islive(self):
         return not self.p.historical
